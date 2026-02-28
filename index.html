@@ -6,6 +6,11 @@
     <title>Ready Set Vote - Voter Research Tool</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        /* Green checkboxes on screen */
+        input[type="checkbox"] {
+            accent-color: #16a34a;
+        }
+
         @media print {
             .no-print { display: none !important; }
             .print-only { display: block !important; }
@@ -298,12 +303,11 @@
                     const selections = userSelections[contestIndex] || [];
                     const isSelected = Array.isArray(selections) ? selections.includes(candidateIndex) : selections === candidateIndex;
 
-                    // Determine party-based colors (green if selected)
+                    // Determine party-based colors
                     const party = candidate.party || '';
                     const isDemocrat = party.toLowerCase().includes('democrat');
                     const isRepublican = party.toLowerCase().includes('republican');
-                    const boxColors = isSelected ? 'bg-green-50 border-green-400' :
-                                     isDemocrat ? 'bg-blue-50 border-blue-200' :
+                    const boxColors = isDemocrat ? 'bg-blue-50 border-blue-200' :
                                      isRepublican ? 'bg-red-50 border-red-200' :
                                      'bg-gray-50 border-gray-200';
 
