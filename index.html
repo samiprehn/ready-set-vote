@@ -233,7 +233,7 @@
                 if (data.pollingLocations && data.pollingLocations.length > 0) {
                     const location = data.pollingLocations[0];
                     const address = location.address;
-                    const hoursText = location.pollingHours ? `<span style="float: right;">🕐 Hours: ${location.pollingHours}</span>` : '';
+                    const hoursText = location.pollingHours ? `<span style="float: right;">Hours: ${location.pollingHours}</span>` : '';
                     printInfo += `<div>${hoursText}Polling Location: ${address.line1}, ${address.city}, ${address.state} ${address.zip}</div>`;
                 }
 
