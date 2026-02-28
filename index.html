@@ -224,7 +224,8 @@
                 `;
 
                 // Update print header with election info
-                let printInfo = `<div><strong>${data.election.name}</strong> - ${electionDate}</div>`;
+                let printInfo = `<div><strong>${data.election.name}</strong></div>`;
+                printInfo += `<div>${electionDate}</div>`;
 
                 if (data.pollingLocations && data.pollingLocations.length > 0) {
                     const location = data.pollingLocations[0];
