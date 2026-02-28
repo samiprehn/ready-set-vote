@@ -31,12 +31,10 @@
                 accent-color: black !important;
                 width: 8pt !important;
                 height: 8pt !important;
-                margin-top: 0 !important;
-                vertical-align: middle !important;
+                margin: 0 !important;
+                position: relative;
+                top: 1pt;
             }
-
-            /* Align labels properly */
-            label { align-items: center !important; }
 
             /* Very compact print layout - no boxes */
             h1 { font-size: 9pt; margin: 0.03in 0; line-height: 1.1; }
@@ -226,16 +224,13 @@
                 `;
 
                 // Update print header with election info
-                let printInfo = `<div><strong>${data.election.name}</strong></div>`;
-                printInfo += `<div>${electionDate}</div>`;
+                let printInfo = `<div><strong>${data.election.name}</strong> - ${electionDate}</div>`;
 
                 if (data.pollingLocations && data.pollingLocations.length > 0) {
                     const location = data.pollingLocations[0];
                     const address = location.address;
-                    printInfo += `<div>Polling Location: ${address.line1}, ${address.city}, ${address.state} ${address.zip}</div>`;
-                    if (location.pollingHours) {
-                        printInfo += `<div>Hours: ${location.pollingHours}</div>`;
-                    }
+                    const hoursText = location.pollingHours ? `<span style="float: right;">Hours: ${location.pollingHours}</span>` : '';
+                    printInfo += `<div>${hoursText}Polling Location: ${address.line1}, ${address.city}, ${address.state} ${address.zip}</div>`;
                 }
 
                 document.getElementById('printElectionInfo').innerHTML = printInfo;
