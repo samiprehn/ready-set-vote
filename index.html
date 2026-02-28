@@ -24,11 +24,11 @@
                 border-color: black !important;
             }
 
-            /* Black and white checkboxes */
+            /* Green checkboxes for print */
             input[type="checkbox"] {
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
-                accent-color: black !important;
+                accent-color: green !important;
                 width: 8pt !important;
                 height: 8pt !important;
                 margin: 0 !important;
@@ -298,15 +298,23 @@
                     const selections = userSelections[contestIndex] || [];
                     const isSelected = Array.isArray(selections) ? selections.includes(candidateIndex) : selections === candidateIndex;
 
+                    // Determine party-based colors
+                    const party = candidate.party || '';
+                    const isDemocrat = party.toLowerCase().includes('democrat');
+                    const isRepublican = party.toLowerCase().includes('republican');
+                    const boxColors = isDemocrat ? 'bg-blue-50 border-blue-200' :
+                                     isRepublican ? 'bg-red-50 border-red-200' :
+                                     'bg-gray-50 border-gray-200';
+
                     html += `
-                        <div class="border rounded-lg p-4 hover:bg-gray-50 transition-colors ${isSelected ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200'} print-candidate">
+                        <div class="border rounded-lg p-4 hover:opacity-90 transition-colors ${boxColors} print-candidate">
                             <label class="flex items-start gap-3 cursor-pointer">
                                 <input
                                     type="checkbox"
                                     id="${selectionId}"
                                     onchange="handleSelection(${contestIndex}, ${candidateIndex})"
                                     ${isSelected ? 'checked' : ''}
-                                    class="mt-1 w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500"
+                                    class="mt-1 w-5 h-5 text-green-600 rounded focus:ring-green-500"
                                 />
                                 <div class="flex-1">
                                     <div class="mb-2">
@@ -315,16 +323,15 @@
                                     </div>
 
                                     <div class="mt-3 space-y-2 no-print">
-                                        <div class="text-sm font-semibold text-gray-700 mb-2">Research Links:</div>
                                         <div class="grid grid-cols-2 gap-2">
                                             ${candidate.candidateUrl ? `
                                                 <a href="${candidate.candidateUrl}" target="_blank" rel="noopener noreferrer"
-                                                   class="text-xs bg-blue-100 text-blue-700 px-3 py-2 rounded hover:bg-blue-200 text-center font-medium">
+                                                   class="text-xs bg-gray-100 text-gray-700 px-3 py-2 rounded hover:bg-gray-200 text-center font-medium">
                                                     🌐 Official Site
                                                 </a>
                                             ` : ''}
                                             <a href="https://www.google.com/search?q=${encodeURIComponent(candidate.name + ' ballotpedia')}" target="_blank" rel="noopener noreferrer"
-                                               class="text-xs bg-green-100 text-green-700 px-3 py-2 rounded hover:bg-green-200 text-center font-medium">
+                                               class="text-xs bg-gray-100 text-gray-700 px-3 py-2 rounded hover:bg-gray-200 text-center font-medium">
                                                 📖 Ballotpedia
                                             </a>
                                             <a href="https://www.google.com/search?q=${encodeURIComponent(candidate.name + ' wikipedia')}" target="_blank" rel="noopener noreferrer"
@@ -332,19 +339,19 @@
                                                 📚 Wikipedia
                                             </a>
                                             <a href="https://www.google.com/search?q=${encodeURIComponent(candidate.name + ' opensecrets campaign donations')}" target="_blank" rel="noopener noreferrer"
-                                               class="text-xs bg-yellow-100 text-yellow-800 px-3 py-2 rounded hover:bg-yellow-200 text-center font-medium">
+                                               class="text-xs bg-gray-100 text-gray-700 px-3 py-2 rounded hover:bg-gray-200 text-center font-medium">
                                                 💰 Donations
                                             </a>
                                             <a href="https://www.google.com/search?q=${encodeURIComponent(candidate.name + ' ' + (contest.office || 'candidate') + ' news')}&tbm=nws" target="_blank" rel="noopener noreferrer"
-                                               class="text-xs bg-red-100 text-red-700 px-3 py-2 rounded hover:bg-red-200 text-center font-medium">
+                                               class="text-xs bg-gray-100 text-gray-700 px-3 py-2 rounded hover:bg-gray-200 text-center font-medium">
                                                 🗞️ News
                                             </a>
                                             <a href="https://www.google.com/search?q=${encodeURIComponent(candidate.name + ' ' + (contest.office || 'candidate') + ' voting record')}" target="_blank" rel="noopener noreferrer"
-                                               class="text-xs bg-purple-100 text-purple-700 px-3 py-2 rounded hover:bg-purple-200 text-center font-medium">
+                                               class="text-xs bg-gray-100 text-gray-700 px-3 py-2 rounded hover:bg-gray-200 text-center font-medium">
                                                 ✅ Voting Record
                                             </a>
                                             <a href="https://www.google.com/search?q=${encodeURIComponent(candidate.name + ' ' + (contest.office || 'candidate') + ' issues OR positions')}" target="_blank" rel="noopener noreferrer"
-                                               class="text-xs bg-indigo-100 text-indigo-700 px-3 py-2 rounded hover:bg-indigo-200 text-center font-medium">
+                                               class="text-xs bg-gray-100 text-gray-700 px-3 py-2 rounded hover:bg-gray-200 text-center font-medium">
                                                 🎯 Issues/Positions
                                             </a>
                                         </div>
