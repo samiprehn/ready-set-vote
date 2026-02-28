@@ -251,11 +251,15 @@
 
             const officeName = contest.office || contest.referendumTitle || 'Contest';
             const districtName = contest.district?.name || '';
+            const numberElected = contest.numberElected || 1;
             // Only show district if it's different from office name
             const showDistrict = districtName && !officeName.includes(districtName) && !districtName.includes(officeName);
 
             let html = `
-                <h3 class="text-2xl font-bold text-gray-800 mb-1 print-text-sm">${officeName}</h3>
+                <h3 class="text-2xl font-bold text-gray-800 mb-1 print-text-sm">
+                    ${officeName}
+                    ${numberElected > 1 ? `<span class="text-base font-normal text-gray-600 ml-2 print-text-xs">(Vote for up to ${numberElected})</span>` : ''}
+                </h3>
                 ${showDistrict ? `<p class="text-sm text-gray-500 mb-4 print-text-xs">${districtName}</p>` : ''}
             `;
 
@@ -263,7 +267,8 @@
                 html += '<div class="space-y-4">';
                 contest.candidates.forEach((candidate, candidateIndex) => {
                     const selectionId = `contest-${contestIndex}-candidate-${candidateIndex}`;
-                    const isSelected = userSelections[contestIndex] === candidateIndex;
+                    const selections = userSelections[contestIndex] || [];
+                    const isSelected = Array.isArray(selections) ? selections.includes(candidateIndex) : selections === candidateIndex;
 
                     html += `
                         <div class="border rounded-lg p-4 hover:bg-gray-50 transition-colors ${isSelected ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200'} print-candidate">
@@ -346,21 +351,48 @@
         }
 
         function handleSelection(contestIndex, candidateIndex) {
-            // Uncheck all other candidates in this contest
             const contest = ballotData.contests[contestIndex];
-            contest.candidates.forEach((_, idx) => {
-                const checkbox = document.getElementById(`contest-${contestIndex}-candidate-${idx}`);
-                if (idx !== candidateIndex && checkbox) {
-                    checkbox.checked = false;
-                }
-            });
-
-            // Update selection
+            const numberElected = contest.numberElected || 1;
             const selectedCheckbox = document.getElementById(`contest-${contestIndex}-candidate-${candidateIndex}`);
-            if (selectedCheckbox.checked) {
-                userSelections[contestIndex] = candidateIndex;
+
+            if (numberElected === 1) {
+                // Single winner - uncheck all others
+                contest.candidates.forEach((_, idx) => {
+                    const checkbox = document.getElementById(`contest-${contestIndex}-candidate-${idx}`);
+                    if (idx !== candidateIndex && checkbox) {
+                        checkbox.checked = false;
+                    }
+                });
+
+                // Update selection
+                if (selectedCheckbox.checked) {
+                    userSelections[contestIndex] = [candidateIndex];
+                } else {
+                    delete userSelections[contestIndex];
+                }
             } else {
-                delete userSelections[contestIndex];
+                // Multi-winner - allow up to numberElected selections
+                if (!userSelections[contestIndex]) {
+                    userSelections[contestIndex] = [];
+                }
+
+                if (selectedCheckbox.checked) {
+                    // Add to selections if under limit
+                    if (userSelections[contestIndex].length < numberElected) {
+                        userSelections[contestIndex].push(candidateIndex);
+                    } else {
+                        // At limit - uncheck and show alert
+                        selectedCheckbox.checked = false;
+                        alert(`You can only select up to ${numberElected} candidates for this race.`);
+                        return;
+                    }
+                } else {
+                    // Remove from selections
+                    userSelections[contestIndex] = userSelections[contestIndex].filter(idx => idx !== candidateIndex);
+                    if (userSelections[contestIndex].length === 0) {
+                        delete userSelections[contestIndex];
+                    }
+                }
             }
 
             // Re-render to update styling (don't scroll to top)
