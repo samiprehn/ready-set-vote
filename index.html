@@ -52,8 +52,12 @@
             /* Minimal spacing between elements */
             .print-candidate { margin: 0.005in 0 !important; }
             .print-race { margin: 0.05in 0 !important; }
-            .print-text-sm { font-size: 7pt; line-height: 1.1; }
-            .print-text-xs { font-size: 6pt; line-height: 1.1; }
+            .print-text-sm { font-size: 7pt !important; line-height: 1.1 !important; }
+            .print-text-xs { font-size: 6pt !important; line-height: 1.1 !important; }
+
+            /* Force all text to be small */
+            span, p, div { font-size: 7pt !important; }
+            .font-bold { font-size: 7pt !important; }
 
             /* Compact spacing for candidate labels */
             label { margin: 0 !important; line-height: 1.1; }
