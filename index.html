@@ -298,11 +298,12 @@
                     const selections = userSelections[contestIndex] || [];
                     const isSelected = Array.isArray(selections) ? selections.includes(candidateIndex) : selections === candidateIndex;
 
-                    // Determine party-based colors
+                    // Determine party-based colors (green if selected)
                     const party = candidate.party || '';
                     const isDemocrat = party.toLowerCase().includes('democrat');
                     const isRepublican = party.toLowerCase().includes('republican');
-                    const boxColors = isDemocrat ? 'bg-blue-50 border-blue-200' :
+                    const boxColors = isSelected ? 'bg-green-50 border-green-400' :
+                                     isDemocrat ? 'bg-blue-50 border-blue-200' :
                                      isRepublican ? 'bg-red-50 border-red-200' :
                                      'bg-gray-50 border-gray-200';
 
