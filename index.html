@@ -160,6 +160,77 @@
 
         let ballotData = null;
         let userSelections = {};
+        let fecDataCache = {};
+
+        // Fetch FEC campaign finance data for a candidate
+        async function fetchFECData(candidateName, office, state, district) {
+            // Only fetch for federal races
+            const isFederal = office.toLowerCase().includes('president') ||
+                            office.toLowerCase().includes('senate') ||
+                            office.toLowerCase().includes('house') ||
+                            office.toLowerCase().includes('representative');
+
+            if (!isFederal) return null;
+
+            const cacheKey = `${candidateName}-${office}`;
+            if (fecDataCache[cacheKey]) {
+                return fecDataCache[cacheKey];
+            }
+
+            try {
+                // Extract last name for search
+                const nameParts = candidateName.trim().split(' ');
+                const lastName = nameParts[nameParts.length - 1];
+
+                // Determine office code: P = President, S = Senate, H = House
+                let officeCode = 'H';
+                if (office.toLowerCase().includes('president')) officeCode = 'P';
+                else if (office.toLowerCase().includes('senate')) officeCode = 'S';
+
+                // Build search URL
+                let searchUrl = `https://api.open.fec.gov/v1/candidates/search/?q=${encodeURIComponent(lastName)}&office=${officeCode}&api_key=DEMO_KEY`;
+                if (state) searchUrl += `&state=${state}`;
+                if (district && officeCode === 'H') searchUrl += `&district=${district.padStart(2, '0')}`;
+
+                const response = await fetch(searchUrl);
+                if (!response.ok) return null;
+
+                const data = await response.json();
+                if (!data.results || data.results.length === 0) return null;
+
+                // Try to find best match by comparing full names
+                let candidate = data.results.find(c => {
+                    const fecName = (c.name || '').toLowerCase();
+                    const searchName = candidateName.toLowerCase();
+                    return fecName.includes(lastName.toLowerCase()) &&
+                           (fecName.includes(nameParts[0].toLowerCase()) || searchName.includes(c.name.toLowerCase()));
+                });
+
+                if (!candidate) candidate = data.results[0]; // Fallback to first result
+
+                // Fetch financial totals for the most recent cycle
+                const totalsUrl = `https://api.open.fec.gov/v1/candidate/${candidate.candidate_id}/totals/?api_key=DEMO_KEY&sort_hide_null=true&per_page=1`;
+                const totalsResponse = await fetch(totalsUrl);
+                if (!totalsResponse.ok) return null;
+
+                const totalsData = await totalsResponse.json();
+                if (!totalsData.results || totalsData.results.length === 0) return null;
+
+                const financials = totalsData.results[0];
+                const result = {
+                    raised: financials.receipts || 0,
+                    spent: financials.disbursements || 0,
+                    cashOnHand: financials.cash_on_hand_end_period || 0,
+                    cycle: financials.cycle
+                };
+
+                fecDataCache[cacheKey] = result;
+                return result;
+            } catch (error) {
+                console.error('FEC API error:', error);
+                return null;
+            }
+        }
 
         async function searchBallot() {
             const address = document.getElementById('addressInput').value.trim();
@@ -270,6 +341,43 @@
                     const contestCard = createContestCard(contest, contestIndex);
                     contestsDiv.appendChild(contestCard);
                 });
+
+                // Fetch FEC data for federal candidates
+                const state = data.normalizedInput?.state || '';
+                data.contests.forEach(async (contest, contestIndex) => {
+                    if (!contest.candidates) return;
+
+                    // Extract district number from district name if available
+                    const districtMatch = contest.district?.name?.match(/\d+/);
+                    const district = districtMatch ? districtMatch[0] : '';
+
+                    contest.candidates.forEach(async (candidate, candidateIndex) => {
+                        const fecData = await fetchFECData(
+                            candidate.name,
+                            contest.office || '',
+                            state,
+                            district
+                        );
+
+                        if (fecData) {
+                            const fecDiv = document.getElementById(`fec-${contestIndex}-${candidateIndex}`);
+                            if (fecDiv) {
+                                const formatMoney = (amount) => {
+                                    if (amount >= 1000000) return `$${(amount / 1000000).toFixed(1)}M`;
+                                    if (amount >= 1000) return `$${(amount / 1000).toFixed(0)}K`;
+                                    return `$${amount.toFixed(0)}`;
+                                };
+
+                                fecDiv.innerHTML = `
+                                    <span class="font-semibold">Campaign Finance (${fecData.cycle}):</span>
+                                    Raised: ${formatMoney(fecData.raised)} |
+                                    Spent: ${formatMoney(fecData.spent)} |
+                                    Cash: ${formatMoney(fecData.cashOnHand)}
+                                `;
+                            }
+                        }
+                    });
+                });
             } else {
                 contestsDiv.innerHTML = '<div class="bg-white rounded-xl shadow-lg p-6"><p class="text-gray-600">No contests found for this address.</p></div>';
             }
@@ -328,6 +436,8 @@
                                         <span class="font-bold text-gray-900 text-lg print-text-sm">${candidate.name}</span>
                                         ${candidate.party ? `<span class="text-sm text-gray-500 ml-2 print-text-xs">(${candidate.party})</span>` : ''}
                                     </div>
+
+                                    <div id="fec-${contestIndex}-${candidateIndex}" class="text-xs text-gray-600 mb-2 print-text-xs"></div>
 
                                     <div class="mt-3 space-y-2 no-print">
                                         <div class="grid grid-cols-2 gap-2">
