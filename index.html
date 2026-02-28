@@ -217,11 +217,46 @@
                 if (!totalsData.results || totalsData.results.length === 0) return null;
 
                 const financials = totalsData.results[0];
+
+                // Fetch top contributors
+                const contributorsUrl = `https://api.open.fec.gov/v1/schedules/schedule_a/?api_key=DEMO_KEY&committee_id=${candidate.principal_committees?.[0]?.committee_id || ''}&sort=-contribution_receipt_amount&per_page=10`;
+                let topContributors = [];
+
+                try {
+                    const contribResponse = await fetch(contributorsUrl);
+                    if (contribResponse.ok) {
+                        const contribData = await contribResponse.json();
+                        if (contribData.results) {
+                            // Get unique contributors by name, summing their contributions
+                            const contributorMap = {};
+                            contribData.results.forEach(contrib => {
+                                const name = contrib.contributor_name || 'Unknown';
+                                const amount = contrib.contribution_receipt_amount || 0;
+                                if (!contributorMap[name]) {
+                                    contributorMap[name] = {
+                                        name: name,
+                                        amount: 0,
+                                        employer: contrib.contributor_employer || ''
+                                    };
+                                }
+                                contributorMap[name].amount += amount;
+                            });
+
+                            topContributors = Object.values(contributorMap)
+                                .sort((a, b) => b.amount - a.amount)
+                                .slice(0, 5);
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error fetching contributors:', e);
+                }
+
                 const result = {
                     raised: financials.receipts || 0,
                     spent: financials.disbursements || 0,
                     cashOnHand: financials.cash_on_hand_end_period || 0,
-                    cycle: financials.cycle
+                    cycle: financials.cycle,
+                    topContributors: topContributors
                 };
 
                 fecDataCache[cacheKey] = result;
@@ -368,12 +403,24 @@
                                     return `$${amount.toFixed(0)}`;
                                 };
 
-                                fecDiv.innerHTML = `
-                                    <span class="font-semibold">Campaign Finance (${fecData.cycle}):</span>
-                                    Raised: ${formatMoney(fecData.raised)} |
-                                    Spent: ${formatMoney(fecData.spent)} |
-                                    Cash: ${formatMoney(fecData.cashOnHand)}
+                                let fecHtml = `
+                                    <div class="mb-1">
+                                        <span class="font-semibold">Campaign Finance (${fecData.cycle}):</span>
+                                        Raised: ${formatMoney(fecData.raised)} |
+                                        Spent: ${formatMoney(fecData.spent)} |
+                                        Cash: ${formatMoney(fecData.cashOnHand)}
+                                    </div>
                                 `;
+
+                                if (fecData.topContributors && fecData.topContributors.length > 0) {
+                                    fecHtml += '<div class="mt-1"><span class="font-semibold">Top Contributors:</span><ul class="list-disc list-inside ml-2">';
+                                    fecData.topContributors.forEach(contrib => {
+                                        fecHtml += `<li>${contrib.name}${contrib.employer ? ` (${contrib.employer})` : ''}: ${formatMoney(contrib.amount)}</li>`;
+                                    });
+                                    fecHtml += '</ul></div>';
+                                }
+
+                                fecDiv.innerHTML = fecHtml;
                             }
                         }
                     });
