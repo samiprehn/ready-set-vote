@@ -199,13 +199,8 @@
                 displayResults(data);
             } catch (error) {
                 hideLoading();
-                if (data && data.error) {
-                    showError(`API Error: ${data.error.message}`);
-                } else {
-                    showError('Could not find ballot information. This could mean: (1) No upcoming elections in your area, (2) Address format issue, or (3) API connection problem. Check the browser console for details.');
-                }
+                showError(error.message);
                 console.error('Full error:', error);
-                console.error('Response data:', data);
             }
         }
 
