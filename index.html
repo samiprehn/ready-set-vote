@@ -233,7 +233,7 @@
                 if (data.pollingLocations && data.pollingLocations.length > 0) {
                     const location = data.pollingLocations[0];
                     const address = location.address;
-                    const hoursText = location.pollingHours ? `<span style="float: right;">Hours: ${location.pollingHours}</span>` : '';
+                    const hoursText = location.pollingHours ? `<span style="float: right;">🕐 Hours: ${location.pollingHours}</span>` : '';
                     printInfo += `<div>${hoursText}Polling Location: ${address.line1}, ${address.city}, ${address.state} ${address.zip}</div>`;
                 }
 
@@ -247,7 +247,7 @@
                 document.getElementById('pollingInfo').innerHTML = `
                     <div class="flex justify-between items-center mb-2">
                         <h3 class="text-xl font-bold text-gray-800">📍 Your Polling Location</h3>
-                        ${location.pollingHours ? `<p class="text-gray-600">Hours: ${location.pollingHours}</p>` : ''}
+                        ${location.pollingHours ? `<p class="text-gray-600">🕐 Hours: ${location.pollingHours}</p>` : ''}
                     </div>
                     <p class="text-gray-700">
                         ${address.line1}<br>
