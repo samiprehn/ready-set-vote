@@ -352,7 +352,7 @@
                         html += '<div class="mb-3"><span class="font-semibold">Bills Sponsored:</span>';
                         billGroups.forEach(group => {
                             const bills = gtData.billsSponsored.filter(b => group.statuses.includes(b.current_status));
-                            html += `<div class="mt-1"><span class="text-gray-600 text-xs uppercase tracking-wide">${group.label}</span>`;
+                            html += `<div class="mt-1"><span class="text-gray-600 text-xs font-medium">${group.label}</span>`;
                             if (bills.length === 0) {
                                 html += '<ul class="list-disc list-inside ml-2"><li class="text-gray-400">None</li></ul>';
                             } else {
@@ -369,7 +369,7 @@
 
                         // Recent votes
                         if (gtData.recentVotes.length > 0) {
-                            html += '<div class="mb-3"><span class="font-semibold">Recent Votes:</span><ul class="list-disc list-inside ml-2">';
+                            html += '<div class="mb-3"><span class="font-semibold">Recent Votes</span> <span class="text-gray-400 text-xs">(✓ = voted with majority, ✗ = voted with minority)</span><ul class="list-disc list-inside ml-2">';
                             gtData.recentVotes.slice(0, 10).forEach(vote => {
                                 const voteOption = vote.option?.value || 'Unknown';
                                 const winner = vote.option?.winner;
