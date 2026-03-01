@@ -316,8 +316,11 @@
 
                         // Bio
                         html += '<div class="mb-3">';
-                        html += `<span class="font-semibold">Party:</span> ${gtData.currentRole.party || 'Unknown'}<br>`;
                         if (gtData.bio.birthday) html += `<span class="font-semibold">Born:</span> ${gtData.bio.birthday}<br>`;
+                        if (gtData.currentRole.startdate) {
+                            const years = Math.floor((new Date() - new Date(gtData.currentRole.startdate)) / (365.25 * 24 * 60 * 60 * 1000));
+                            html += `<span class="font-semibold">Years in office:</span> ${years}<br>`;
+                        }
                         html += '</div>';
 
                         // Committees
