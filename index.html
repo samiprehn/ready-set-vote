@@ -210,7 +210,7 @@
                 const [personData, votesData, billsData, committeesData, rolesData] = await Promise.all([
                     fetch(`https://www.govtrack.us/api/v2/person/${personId}`).then(r => r.ok ? r.json() : null),
                     fetch(`https://www.govtrack.us/api/v2/vote_voter?person=${personId}&limit=20&order_by=-created`).then(r => r.ok ? r.json() : null),
-                    fetch(`https://www.govtrack.us/api/v2/bill?sponsor=${personId}&limit=10&order_by=-current_status_date`).then(r => r.ok ? r.json() : null),
+                    fetch(`https://www.govtrack.us/api/v2/bill?sponsor=${personId}&limit=50&order_by=-introduced_date`).then(r => r.ok ? r.json() : null),
                     fetch(`https://www.govtrack.us/api/v2/committee_member?person=${personId}`).then(r => r.ok ? r.json() : null),
                     fetch(`https://www.govtrack.us/api/v2/role?person=${personId}&limit=50&order_by=startdate`).then(r => r.ok ? r.json() : null)
                 ]);
@@ -223,7 +223,12 @@
                     currentRole: match,
                     firstStart,
                     recentVotes: votesData?.objects || [],
-                    billsSponsored: billsData?.objects || [],
+                    billsSponsored: Object.values(
+                        (billsData?.objects || []).reduce((acc, bill) => {
+                            if (!acc[bill.current_status]) acc[bill.current_status] = bill;
+                            return acc;
+                        }, {})
+                    ),
                     committees: committeesData?.objects || []
                 };
 
@@ -344,7 +349,7 @@
                         // Bills sponsored
                         if (gtData.billsSponsored.length > 0) {
                             html += '<div class="mb-3"><span class="font-semibold">Recent Bills Sponsored:</span><ul class="list-disc list-inside ml-2">';
-                            gtData.billsSponsored.slice(0, 5).forEach(bill => {
+                            gtData.billsSponsored.forEach(bill => {
                                 const title = bill.title_without_number || bill.title || 'Untitled';
                                 const status = bill.current_status_label || '';
                                 html += `<li>${bill.display_number}: ${title.substring(0, 100)}${title.length > 100 ? '...' : ''} <span class="text-gray-500">${status}</span></li>`;
