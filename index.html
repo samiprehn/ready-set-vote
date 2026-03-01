@@ -268,7 +268,7 @@
 
                             topContributors = Object.values(contributorMap)
                                 .sort((a, b) => b.amount - a.amount)
-                                .slice(0, 5);
+                                .slice(0, 10);
                         }
                     }
                 } catch (e) {
@@ -420,6 +420,13 @@
 
                         if (fecData) {
                             const fecDiv = document.getElementById(`fec-${contestIndex}-${candidateIndex}`);
+                            const donationsBtn = document.getElementById(`btn-donations-${contestIndex}-${candidateIndex}`);
+
+                            // Show the Donations button since we have data
+                            if (donationsBtn) {
+                                donationsBtn.classList.remove('hidden');
+                            }
+
                             if (fecDiv) {
                                 const formatMoney = (amount) => {
                                     if (amount >= 1000000) return `$${(amount / 1000000).toFixed(1)}M`;
@@ -516,7 +523,7 @@
                                             </button>
                                             <button onclick="toggleCandidateView(${contestIndex}, ${candidateIndex}, 'donations')"
                                                     id="btn-donations-${contestIndex}-${candidateIndex}"
-                                                    class="text-xs px-3 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300">
+                                                    class="hidden text-xs px-3 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300">
                                                 Donations
                                             </button>
                                         </div>
