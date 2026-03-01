@@ -223,12 +223,25 @@
                     currentRole: match,
                     firstStart,
                     recentVotes: votesData?.objects || [],
-                    billsSponsored: Object.values(
-                        (billsData?.objects || []).reduce((acc, bill) => {
-                            if (!acc[bill.current_status]) acc[bill.current_status] = bill;
-                            return acc;
-                        }, {})
-                    ),
+                    billsSponsored: (() => {
+                        const statusRank = {
+                            enacted_signed: 10, enacted_veto_override: 10, enacted_tendayrule: 10,
+                            passed_bill: 9, passed_concurrentres: 8, passed_simpleres: 7, passed_constamend: 7,
+                            conference_passed_house: 6, conference_passed_senate: 6,
+                            pass_over_house: 5, pass_over_senate: 5,
+                            failed_second_house: 4, failed_second_senate: 4,
+                            reported: 3,
+                            failed_originating_house: 2, failed_originating_senate: 2,
+                            prov_kill_suspensionfailed: 2, prov_kill_cloturefailed: 2,
+                            vetoed_pocket: 2,
+                            referred: 1,
+                            introduced: 0,
+                        };
+                        return (billsData?.objects || [])
+                            .slice()
+                            .sort((a, b) => (statusRank[b.current_status] ?? 0) - (statusRank[a.current_status] ?? 0))
+                            .slice(0, 8);
+                    })(),
                     committees: committeesData?.objects || []
                 };
 
