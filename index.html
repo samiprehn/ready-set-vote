@@ -73,9 +73,6 @@
             /* Compact spacing for candidate labels */
             label { margin: 0 !important; line-height: 1.1; }
             div { line-height: 1.1; }
-
-            /* Show donation info in print (override hidden class) */
-            [id^="donations-"] { display: block !important; }
         }
         .print-only { display: none; }
     </style>
@@ -584,8 +581,8 @@
                                         ` : ''}
                                     </div>
 
-                                    <div class="mt-3 space-y-2 hidden" id="donations-${contestIndex}-${candidateIndex}">
-                                        <div id="fec-${contestIndex}-${candidateIndex}" class="text-xs text-gray-600 print-text-xs"></div>
+                                    <div class="mt-3 space-y-2 no-print hidden" id="donations-${contestIndex}-${candidateIndex}">
+                                        <div id="fec-${contestIndex}-${candidateIndex}" class="text-xs text-gray-600"></div>
                                     </div>
                                 </div>
                             </label>
