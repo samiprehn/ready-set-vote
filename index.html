@@ -322,10 +322,11 @@
                         // Bio
                         html += '<div class="mb-3">';
                         const yearsInCongress = gtData.firstStart ? Math.floor((new Date() - new Date(gtData.firstStart)) / (365.25 * 24 * 60 * 60 * 1000)) : null;
-                        if (gtData.bio.birthday && yearsInCongress !== null) {
-                            html += `<span class="font-semibold">Born:</span> ${gtData.bio.birthday} &nbsp;|&nbsp; <span class="font-semibold">Years in Congress:</span> ${yearsInCongress}<br>`;
-                        } else if (gtData.bio.birthday) {
-                            html += `<span class="font-semibold">Born:</span> ${gtData.bio.birthday}<br>`;
+                        const age = gtData.bio.birthday ? Math.floor((new Date() - new Date(gtData.bio.birthday)) / (365.25 * 24 * 60 * 60 * 1000)) : null;
+                        if (age !== null && yearsInCongress !== null) {
+                            html += `<span class="font-semibold">Age:</span> ${age} &nbsp;|&nbsp; <span class="font-semibold">Years in Congress:</span> ${yearsInCongress}<br>`;
+                        } else if (age !== null) {
+                            html += `<span class="font-semibold">Age:</span> ${age}<br>`;
                         } else if (yearsInCongress !== null) {
                             html += `<span class="font-semibold">Years in Congress:</span> ${yearsInCongress}<br>`;
                         }
