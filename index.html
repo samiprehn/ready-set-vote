@@ -389,10 +389,10 @@
                                 const passed = vote.vote?.passed;
                                 const yeas = vote.vote?.total_plus ?? '';
                                 const nays = vote.vote?.total_minus ?? '';
-                                const tally = yeas !== '' ? ` ${passed ? 'Passed' : 'Failed'} ${yeas}-${nays}` : '';
+                                const tally = yeas !== '' ? ` <span class="text-gray-500">(${passed ? 'Passed' : 'Failed'} ${yeas}-${nays})</span>` : '';
                                 const winLabel = winner != null ? (winner ? ' ✓' : ' ✗') : '';
                                 const question = voteQuestion.substring(0, 80) + (voteQuestion.length > 80 ? '...' : '');
-                                html += `<li><strong>${voteOption}${winLabel}</strong> on ${question} <span class="text-gray-500">${tally}</span></li>`;
+                                html += `<li><strong>${voteOption}${winLabel}</strong> on ${question}${tally}</li>`;
                             });
                             html += '</ul></div>';
                         }
