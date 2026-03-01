@@ -329,6 +329,10 @@
                         } else if (yearsInCongress !== null) {
                             html += `<span class="font-semibold">Years in Congress:</span> ${yearsInCongress}<br>`;
                         }
+                        const links = [];
+                        if (gtData.bio.link) links.push(`<a href="${gtData.bio.link}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">GovTrack</a>`);
+                        if (gtData.bio.osid) links.push(`<a href="https://www.opensecrets.org/members-of-congress/summary?cid=${gtData.bio.osid}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">OpenSecrets</a>`);
+                        if (links.length > 0) html += `<div class="mt-1">${links.join(' &nbsp;|&nbsp; ')}</div>`;
                         html += '</div>';
 
                         // Committees
