@@ -232,18 +232,20 @@
 
                 if (!candidate) candidate = data.results[0]; // Fallback to first result
 
-                // Fetch financial totals for the most recent cycle
-                const totalsUrl = `https://api.open.fec.gov/v1/candidate/${candidate.candidate_id}/totals/?api_key=DEMO_KEY&sort_hide_null=true&per_page=1`;
+                // Fetch financial totals for recent cycles only (2020 or later)
+                const totalsUrl = `https://api.open.fec.gov/v1/candidate/${candidate.candidate_id}/totals/?api_key=DEMO_KEY&sort_hide_null=true&per_page=5`;
                 const totalsResponse = await fetch(totalsUrl);
                 if (!totalsResponse.ok) return null;
 
                 const totalsData = await totalsResponse.json();
                 if (!totalsData.results || totalsData.results.length === 0) return null;
 
-                const financials = totalsData.results[0];
+                // Find the most recent cycle that's 2020 or later
+                const financials = totalsData.results.find(result => result.cycle >= 2020);
+                if (!financials) return null; // No recent data, don't show anything
 
-                // Fetch top contributors
-                const contributorsUrl = `https://api.open.fec.gov/v1/schedules/schedule_a/?api_key=DEMO_KEY&committee_id=${candidate.principal_committees?.[0]?.committee_id || ''}&sort=-contribution_receipt_amount&per_page=10`;
+                // Fetch top contributors for the same cycle
+                const contributorsUrl = `https://api.open.fec.gov/v1/schedules/schedule_a/?api_key=DEMO_KEY&committee_id=${candidate.principal_committees?.[0]?.committee_id || ''}&two_year_transaction_period=${financials.cycle}&sort=-contribution_receipt_amount&per_page=50`;
                 let topContributors = [];
 
                 try {
