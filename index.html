@@ -204,13 +204,14 @@
 
                 if (!match) return null;
 
-                const personId = match.person.id;
+                const personId = match.person.link?.split('/').filter(Boolean).pop();
 
-                // Fetch detailed person info, votes, and bills sponsored in parallel
-                const [personData, votesData, billsData] = await Promise.all([
+                // Fetch person info, votes, bills, and committee memberships in parallel
+                const [personData, votesData, billsData, committeesData] = await Promise.all([
                     fetch(`https://www.govtrack.us/api/v2/person/${personId}`).then(r => r.ok ? r.json() : null),
                     fetch(`https://www.govtrack.us/api/v2/vote_voter?person=${personId}&limit=20&order_by=-created`).then(r => r.ok ? r.json() : null),
-                    fetch(`https://www.govtrack.us/api/v2/bill?sponsor=${personId}&limit=10&order_by=-current_status_date`).then(r => r.ok ? r.json() : null)
+                    fetch(`https://www.govtrack.us/api/v2/bill?sponsor=${personId}&limit=10&order_by=-current_status_date`).then(r => r.ok ? r.json() : null),
+                    fetch(`https://www.govtrack.us/api/v2/committee_member?person=${personId}`).then(r => r.ok ? r.json() : null)
                 ]);
 
                 const result = {
@@ -218,8 +219,7 @@
                     currentRole: match,
                     recentVotes: votesData?.objects || [],
                     billsSponsored: billsData?.objects || [],
-                    ideologyScore: personData?.leadership_score || null,
-                    committees: match.committees || []
+                    committees: committeesData?.objects || []
                 };
 
                 govTrackCache[cacheKey] = result;
@@ -314,41 +314,45 @@
                     if (gtData) {
                         let html = '';
 
-                        // Bio & ideology
-                        if (gtData.bio) {
-                            html += '<div class="mb-3">';
-                            html += `<span class="font-semibold">Party:</span> ${gtData.currentRole.party || 'Unknown'}<br>`;
-                            if (gtData.bio.birthday) html += `<span class="font-semibold">Born:</span> ${gtData.bio.birthday}<br>`;
-                            if (gtData.ideologyScore) html += `<span class="font-semibold">Ideology Score:</span> ${gtData.ideologyScore.toFixed(2)} <span class="text-gray-500">(0=most conservative, 1=most liberal)</span><br>`;
-                            html += '</div>';
-                        }
+                        // Bio
+                        html += '<div class="mb-3">';
+                        html += `<span class="font-semibold">Party:</span> ${gtData.currentRole.party || 'Unknown'}<br>`;
+                        if (gtData.bio.birthday) html += `<span class="font-semibold">Born:</span> ${gtData.bio.birthday}<br>`;
+                        html += '</div>';
 
                         // Committees
-                        if (gtData.committees && gtData.committees.length > 0) {
+                        if (gtData.committees.length > 0) {
                             html += '<div class="mb-3"><span class="font-semibold">Committees:</span><ul class="list-disc list-inside ml-2">';
-                            gtData.committees.forEach(committee => {
-                                html += `<li>${committee}</li>`;
+                            gtData.committees.forEach(cm => {
+                                const role = cm.role_label && cm.role_label !== 'Member' ? ` (${cm.role_label})` : '';
+                                html += `<li>${cm.committee.name}${role}</li>`;
                             });
                             html += '</ul></div>';
                         }
 
                         // Bills sponsored
-                        if (gtData.billsSponsored && gtData.billsSponsored.length > 0) {
+                        if (gtData.billsSponsored.length > 0) {
                             html += '<div class="mb-3"><span class="font-semibold">Recent Bills Sponsored:</span><ul class="list-disc list-inside ml-2">';
                             gtData.billsSponsored.slice(0, 5).forEach(bill => {
                                 const title = bill.title_without_number || bill.title || 'Untitled';
-                                html += `<li>${bill.display_number}: ${title.substring(0, 100)}${title.length > 100 ? '...' : ''}</li>`;
+                                const status = bill.current_status_label || '';
+                                html += `<li>${bill.display_number}: ${title.substring(0, 100)}${title.length > 100 ? '...' : ''} <span class="text-gray-500">(${status})</span></li>`;
                             });
                             html += '</ul></div>';
                         }
 
                         // Recent votes
-                        if (gtData.recentVotes && gtData.recentVotes.length > 0) {
+                        if (gtData.recentVotes.length > 0) {
                             html += '<div class="mb-3"><span class="font-semibold">Recent Votes:</span><ul class="list-disc list-inside ml-2">';
                             gtData.recentVotes.slice(0, 10).forEach(vote => {
-                                const voteOption = vote.option?.value || vote.option || 'Unknown';
-                                const voteQuestion = vote.vote?.question || 'Unknown bill';
-                                html += `<li><strong>${voteOption}</strong> on ${voteQuestion.substring(0, 80)}${voteQuestion.length > 80 ? '...' : ''}</li>`;
+                                const voteOption = vote.option?.value || 'Unknown';
+                                const voteQuestion = vote.vote?.question || 'Unknown';
+                                const passed = vote.vote?.passed;
+                                const yeas = vote.vote?.total_plus ?? '';
+                                const nays = vote.vote?.total_minus ?? '';
+                                const tally = yeas !== '' ? ` <span class="text-gray-500">(${passed ? 'Passed' : 'Failed'} ${yeas}-${nays})</span>` : '';
+                                const question = voteQuestion.substring(0, 80) + (voteQuestion.length > 80 ? '...' : '');
+                                html += `<li><strong>${voteOption}</strong> on ${question}${tally}</li>`;
                             });
                             html += '</ul></div>';
                         }
