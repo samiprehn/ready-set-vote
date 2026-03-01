@@ -351,19 +351,22 @@
                         ];
                         html += '<div class="mb-3"><span class="font-semibold">Bills Sponsored</span> <span class="text-gray-400 text-xs">(from 50 most recent; alive = can still pass this Congress)</span>:';
                         const remainingBills = new Set(gtData.billsSponsored.map(b => b.display_number));
+                        let billsDisplayed = 0;
                         billGroups.forEach(group => {
                             const bills = gtData.billsSponsored.filter(b => group.statuses.includes(b.current_status) && remainingBills.has(b.display_number));
                             bills.forEach(b => remainingBills.delete(b.display_number));
+                            const billsToShow = bills.slice(0, 20 - billsDisplayed);
                             html += `<div class="mt-1"><span class="text-gray-600 text-xs font-medium">${group.label}</span>`;
                             if (bills.length === 0) {
                                 html += '<ul class="list-disc list-inside ml-2"><li class="text-gray-400">None</li></ul>';
                             } else {
                                 html += '<ul class="list-disc list-inside ml-2">';
-                                bills.slice(0, 3).forEach(bill => {
+                                billsToShow.forEach(bill => {
                                     const title = bill.title_without_number || bill.title || 'Untitled';
                                     const alive = bill.is_alive ? 'alive' : 'dead';
                                     html += `<li>${bill.display_number}: ${title.substring(0, 100)}${title.length > 100 ? '...' : ''} <span class="text-gray-400">(${alive})</span></li>`;
                                 });
+                                billsDisplayed += billsToShow.length;
                                 html += '</ul>';
                             }
                             html += '</div>';
