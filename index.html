@@ -655,6 +655,13 @@
                 ${showDistrict ? `<p class="text-sm text-gray-500 mb-4 print-text-xs">${districtName}</p>` : ''}
             `;
 
+            if (contest.referendumTitle || contest.referendumSubtitle) {
+                if (contest.referendumSubtitle) html += `<p class="text-sm text-gray-600 mb-3">${contest.referendumSubtitle}</p>`;
+                if (contest.referendumUrl) html += `<p class="mb-3"><a href="${contest.referendumUrl}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline text-sm">Official information</a></p>`;
+                if (contest.referendumProStatement) html += `<div class="mb-3"><span class="font-semibold text-green-700">For:</span> <span class="text-sm text-gray-700">${contest.referendumProStatement}</span></div>`;
+                if (contest.referendumConStatement) html += `<div class="mb-3"><span class="font-semibold text-red-700">Against:</span> <span class="text-sm text-gray-700">${contest.referendumConStatement}</span></div>`;
+            }
+
             if (contest.candidates) {
                 html += '<div class="space-y-4">';
                 contest.candidates.forEach((candidate, candidateIndex) => {
