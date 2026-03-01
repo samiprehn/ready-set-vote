@@ -355,7 +355,9 @@
                         billGroups.forEach(group => {
                             const bills = gtData.billsSponsored.filter(b => group.statuses.includes(b.current_status) && remainingBills.has(b.display_number));
                             bills.forEach(b => remainingBills.delete(b.display_number));
-                            const billsToShow = bills.slice(0, 20 - billsDisplayed);
+                            const isIntroduced = group.label === 'Introduced';
+                            const limit = isIntroduced ? Math.min(10, 20 - billsDisplayed) : 20 - billsDisplayed;
+                            const billsToShow = bills.slice(0, limit);
                             html += `<div class="mt-1"><span class="text-gray-600 text-xs font-medium">${group.label}</span>`;
                             if (bills.length === 0) {
                                 html += '<ul class="list-disc list-inside ml-2"><li class="text-gray-400">None</li></ul>';
