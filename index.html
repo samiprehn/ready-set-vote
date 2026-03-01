@@ -209,7 +209,7 @@
                 // Fetch person info, votes, bills, committee memberships, and all roles in parallel
                 const [personData, votesData, billsData, committeesData, rolesData] = await Promise.all([
                     fetch(`https://www.govtrack.us/api/v2/person/${personId}`).then(r => r.ok ? r.json() : null),
-                    fetch(`https://www.govtrack.us/api/v2/vote_voter?person=${personId}&limit=20&order_by=-created`).then(r => r.ok ? r.json() : null),
+                    fetch(`https://www.govtrack.us/api/v2/vote_voter?person=${personId}&limit=10&order_by=-created`).then(r => r.ok ? r.json() : null),
                     fetch(`https://www.govtrack.us/api/v2/bill?sponsor=${personId}&limit=50&order_by=-introduced_date`).then(r => r.ok ? r.json() : null),
                     fetch(`https://www.govtrack.us/api/v2/committee_member?person=${personId}`).then(r => r.ok ? r.json() : null),
                     fetch(`https://www.govtrack.us/api/v2/role?person=${personId}&limit=50&order_by=startdate`).then(r => r.ok ? r.json() : null)
@@ -350,8 +350,10 @@
                             { label: 'Introduced', statuses: ['introduced','referred','prov_kill_suspensionfailed','prov_kill_cloturefailed','vetoed_pocket','failed_originating_house','failed_originating_senate'] },
                         ];
                         html += '<div class="mb-3"><span class="font-semibold">Bills Sponsored:</span>';
+                        const remainingBills = new Set(gtData.billsSponsored.map(b => b.display_number));
                         billGroups.forEach(group => {
-                            const bills = gtData.billsSponsored.filter(b => group.statuses.includes(b.current_status));
+                            const bills = gtData.billsSponsored.filter(b => group.statuses.includes(b.current_status) && remainingBills.has(b.display_number));
+                            bills.forEach(b => remainingBills.delete(b.display_number));
                             html += `<div class="mt-1"><span class="text-gray-600 text-xs font-medium">${group.label}</span>`;
                             if (bills.length === 0) {
                                 html += '<ul class="list-disc list-inside ml-2"><li class="text-gray-400">None</li></ul>';
@@ -370,7 +372,7 @@
                         // Recent votes
                         if (gtData.recentVotes.length > 0) {
                             html += '<div class="mb-3"><span class="font-semibold">Recent Votes</span> <span class="text-gray-400 text-xs">(✓ = voted with majority, ✗ = voted with minority)</span><ul class="list-disc list-inside ml-2">';
-                            gtData.recentVotes.slice(0, 10).forEach(vote => {
+                            gtData.recentVotes.forEach(vote => {
                                 const voteOption = vote.option?.value || 'Unknown';
                                 const winner = vote.option?.winner;
                                 const voteQuestion = vote.vote?.question || 'Unknown';
