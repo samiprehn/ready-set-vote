@@ -162,6 +162,30 @@
         let userSelections = {};
         let fecDataCache = {};
 
+        // Toggle between links and donations view for a candidate
+        function toggleCandidateView(contestIndex, candidateIndex, view) {
+            const linksDiv = document.getElementById(`links-${contestIndex}-${candidateIndex}`);
+            const donationsDiv = document.getElementById(`donations-${contestIndex}-${candidateIndex}`);
+            const linksBtn = document.getElementById(`btn-links-${contestIndex}-${candidateIndex}`);
+            const donationsBtn = document.getElementById(`btn-donations-${contestIndex}-${candidateIndex}`);
+
+            if (view === 'links') {
+                linksDiv.classList.remove('hidden');
+                donationsDiv.classList.add('hidden');
+                linksBtn.classList.remove('bg-gray-200', 'text-gray-700');
+                linksBtn.classList.add('bg-gray-600', 'text-white');
+                donationsBtn.classList.remove('bg-gray-600', 'text-white');
+                donationsBtn.classList.add('bg-gray-200', 'text-gray-700');
+            } else {
+                linksDiv.classList.add('hidden');
+                donationsDiv.classList.remove('hidden');
+                linksBtn.classList.remove('bg-gray-600', 'text-white');
+                linksBtn.classList.add('bg-gray-200', 'text-gray-700');
+                donationsBtn.classList.remove('bg-gray-200', 'text-gray-700');
+                donationsBtn.classList.add('bg-gray-600', 'text-white');
+            }
+        }
+
         // Fetch FEC campaign finance data for a candidate
         async function fetchFECData(candidateName, office, state, district) {
             // Only fetch for federal races
@@ -479,14 +503,26 @@
                                     class="mt-1 w-5 h-5 text-green-600 rounded focus:ring-green-500"
                                 />
                                 <div class="flex-1">
-                                    <div class="mb-2">
-                                        <span class="font-bold text-gray-900 text-lg print-text-sm">${candidate.name}</span>
-                                        ${candidate.party ? `<span class="text-sm text-gray-500 ml-2 print-text-xs">(${candidate.party})</span>` : ''}
+                                    <div class="mb-2 flex items-center gap-2 flex-wrap">
+                                        <div>
+                                            <span class="font-bold text-gray-900 text-lg print-text-sm">${candidate.name}</span>
+                                            ${candidate.party ? `<span class="text-sm text-gray-500 ml-2 print-text-xs">(${candidate.party})</span>` : ''}
+                                        </div>
+                                        <div class="no-print flex gap-1">
+                                            <button onclick="toggleCandidateView(${contestIndex}, ${candidateIndex}, 'links')"
+                                                    id="btn-links-${contestIndex}-${candidateIndex}"
+                                                    class="text-xs px-3 py-1 rounded bg-gray-600 text-white hover:bg-gray-700">
+                                                Links
+                                            </button>
+                                            <button onclick="toggleCandidateView(${contestIndex}, ${candidateIndex}, 'donations')"
+                                                    id="btn-donations-${contestIndex}-${candidateIndex}"
+                                                    class="text-xs px-3 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300">
+                                                Donations
+                                            </button>
+                                        </div>
                                     </div>
 
-                                    <div id="fec-${contestIndex}-${candidateIndex}" class="text-xs text-gray-600 mb-2 print-text-xs"></div>
-
-                                    <div class="mt-3 space-y-2 no-print">
+                                    <div class="mt-3 space-y-2 no-print" id="links-${contestIndex}-${candidateIndex}">
                                         <div class="grid grid-cols-2 gap-2">
                                             ${candidate.candidateUrl ? `
                                                 <a href="${candidate.candidateUrl}" target="_blank" rel="noopener noreferrer"
@@ -536,6 +572,10 @@
                                                 </div>
                                             </div>
                                         ` : ''}
+                                    </div>
+
+                                    <div class="mt-3 space-y-2 no-print hidden" id="donations-${contestIndex}-${candidateIndex}">
+                                        <div id="fec-${contestIndex}-${candidateIndex}" class="text-xs text-gray-600"></div>
                                     </div>
                                 </div>
                             </label>
