@@ -206,17 +206,22 @@
 
                 const personId = match.person.link?.split('/').filter(Boolean).pop();
 
-                // Fetch person info, votes, bills, and committee memberships in parallel
-                const [personData, votesData, billsData, committeesData] = await Promise.all([
+                // Fetch person info, votes, bills, committee memberships, and all roles in parallel
+                const [personData, votesData, billsData, committeesData, rolesData] = await Promise.all([
                     fetch(`https://www.govtrack.us/api/v2/person/${personId}`).then(r => r.ok ? r.json() : null),
                     fetch(`https://www.govtrack.us/api/v2/vote_voter?person=${personId}&limit=20&order_by=-created`).then(r => r.ok ? r.json() : null),
                     fetch(`https://www.govtrack.us/api/v2/bill?sponsor=${personId}&limit=10&order_by=-current_status_date`).then(r => r.ok ? r.json() : null),
-                    fetch(`https://www.govtrack.us/api/v2/committee_member?person=${personId}`).then(r => r.ok ? r.json() : null)
+                    fetch(`https://www.govtrack.us/api/v2/committee_member?person=${personId}`).then(r => r.ok ? r.json() : null),
+                    fetch(`https://www.govtrack.us/api/v2/role?person=${personId}&limit=50&order_by=startdate`).then(r => r.ok ? r.json() : null)
                 ]);
+
+                const allRoles = rolesData?.objects || [];
+                const firstStart = allRoles.length > 0 ? allRoles[0].startdate : match.startdate;
 
                 const result = {
                     bio: personData || {},
                     currentRole: match,
+                    firstStart,
                     recentVotes: votesData?.objects || [],
                     billsSponsored: billsData?.objects || [],
                     committees: committeesData?.objects || []
@@ -317,9 +322,9 @@
                         // Bio
                         html += '<div class="mb-3">';
                         if (gtData.bio.birthday) html += `<span class="font-semibold">Born:</span> ${gtData.bio.birthday}<br>`;
-                        if (gtData.currentRole.startdate) {
-                            const years = Math.floor((new Date() - new Date(gtData.currentRole.startdate)) / (365.25 * 24 * 60 * 60 * 1000));
-                            html += `<span class="font-semibold">Years in office:</span> ${years}<br>`;
+                        if (gtData.firstStart) {
+                            const years = Math.floor((new Date() - new Date(gtData.firstStart)) / (365.25 * 24 * 60 * 60 * 1000));
+                            html += `<span class="font-semibold">Years in Congress:</span> ${years}<br>`;
                         }
                         html += '</div>';
 
