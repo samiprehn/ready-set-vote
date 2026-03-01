@@ -211,12 +211,12 @@
                 if (office.toLowerCase().includes('president')) officeCode = 'P';
                 else if (office.toLowerCase().includes('senate')) officeCode = 'S';
 
-                // Build search URL
-                let searchUrl = `https://api.open.fec.gov/v1/candidates/search/?q=${encodeURIComponent(lastName)}&office=${officeCode}&api_key=DEMO_KEY`;
-                if (state) searchUrl += `&state=${state}`;
-                if (district && officeCode === 'H') searchUrl += `&district=${district.padStart(2, '0')}`;
+                // Build search path
+                let searchPath = `/candidates/search/?q=${encodeURIComponent(lastName)}&office=${officeCode}`;
+                if (state) searchPath += `&state=${state}`;
+                if (district && officeCode === 'H') searchPath += `&district=${district.padStart(2, '0')}`;
 
-                const response = await fetch(searchUrl);
+                const response = await fetch(`${WORKER_URL}?fec=${encodeURIComponent(searchPath)}`);
                 if (!response.ok) return null;
 
                 const data = await response.json();
@@ -233,8 +233,8 @@
                 if (!candidate) candidate = data.results[0]; // Fallback to first result
 
                 // Fetch financial totals for the most recent cycle
-                const totalsUrl = `https://api.open.fec.gov/v1/candidate/${candidate.candidate_id}/totals/?api_key=DEMO_KEY&sort_hide_null=true&per_page=1`;
-                const totalsResponse = await fetch(totalsUrl);
+                const totalsPath = `/candidate/${candidate.candidate_id}/totals/?sort_hide_null=true&per_page=1`;
+                const totalsResponse = await fetch(`${WORKER_URL}?fec=${encodeURIComponent(totalsPath)}`);
                 if (!totalsResponse.ok) return null;
 
                 const totalsData = await totalsResponse.json();
@@ -243,11 +243,11 @@
                 const financials = totalsData.results[0];
 
                 // Fetch top contributors (from all cycles)
-                const contributorsUrl = `https://api.open.fec.gov/v1/schedules/schedule_a/?api_key=DEMO_KEY&committee_id=${candidate.principal_committees?.[0]?.committee_id || ''}&sort=-contribution_receipt_amount&per_page=50`;
+                const contributorsPath = `/schedules/schedule_a/?committee_id=${candidate.principal_committees?.[0]?.committee_id || ''}&sort=-contribution_receipt_amount&per_page=50`;
                 let topContributors = [];
 
                 try {
-                    const contribResponse = await fetch(contributorsUrl);
+                    const contribResponse = await fetch(`${WORKER_URL}?fec=${encodeURIComponent(contributorsPath)}`);
                     if (contribResponse.ok) {
                         const contribData = await contribResponse.json();
                         if (contribData.results) {
