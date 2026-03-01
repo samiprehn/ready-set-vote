@@ -161,22 +161,97 @@
         let ballotData = null;
         let userSelections = {};
         let fecDataCache = {};
+        let govTrackCache = {};
 
-        // Toggle between links and donations view for a candidate
+        // Fetch GovTrack data for a legislator
+        async function fetchGovTrackData(candidateName, office) {
+            const cacheKey = `${candidateName}-${office}`;
+            if (govTrackCache[cacheKey]) {
+                return govTrackCache[cacheKey];
+            }
+
+            try {
+                // Extract name parts
+                const nameParts = candidateName.trim().split(' ');
+                const lastName = nameParts[nameParts.length - 1];
+                const firstName = nameParts[0];
+
+                // Determine role
+                let role = null;
+                if (office.toLowerCase().includes('senate')) role = 'senator';
+                else if (office.toLowerCase().includes('house') || office.toLowerCase().includes('representative')) role = 'representative';
+                else return null; // Not a federal legislator
+
+                // Search for current legislator
+                const searchUrl = `https://www.govtrack.us/api/v2/role?current=true&role_type=${role}&limit=600`;
+                const searchResponse = await fetch(searchUrl);
+                if (!searchResponse.ok) return null;
+
+                const searchData = await searchResponse.json();
+                if (!searchData.objects) return null;
+
+                // Find matching legislator
+                const match = searchData.objects.find(person => {
+                    const personName = person.person?.name || '';
+                    return personName.toLowerCase().includes(lastName.toLowerCase()) &&
+                           personName.toLowerCase().includes(firstName.toLowerCase());
+                });
+
+                if (!match) return null;
+
+                const personId = match.person.id;
+
+                // Fetch detailed person info, votes, and bills sponsored in parallel
+                const [personData, votesData, billsData] = await Promise.all([
+                    fetch(`https://www.govtrack.us/api/v2/person/${personId}`).then(r => r.ok ? r.json() : null),
+                    fetch(`https://www.govtrack.us/api/v2/vote_voter?person=${personId}&limit=20&order_by=-created`).then(r => r.ok ? r.json() : null),
+                    fetch(`https://www.govtrack.us/api/v2/bill?sponsor=${personId}&limit=10&order_by=-current_status_date`).then(r => r.ok ? r.json() : null)
+                ]);
+
+                const result = {
+                    bio: personData || {},
+                    currentRole: match,
+                    recentVotes: votesData?.objects || [],
+                    billsSponsored: billsData?.objects || [],
+                    ideologyScore: personData?.leadership_score || null,
+                    committees: match.committees || []
+                };
+
+                govTrackCache[cacheKey] = result;
+                return result;
+            } catch (error) {
+                console.error('GovTrack API error:', error);
+                return null;
+            }
+        }
+
+        // Toggle between links, donations, and record view for a candidate
         async function toggleCandidateView(contestIndex, candidateIndex, view) {
             const linksDiv = document.getElementById(`links-${contestIndex}-${candidateIndex}`);
             const donationsDiv = document.getElementById(`donations-${contestIndex}-${candidateIndex}`);
+            const recordDiv = document.getElementById(`record-${contestIndex}-${candidateIndex}`);
             const linksBtn = document.getElementById(`btn-links-${contestIndex}-${candidateIndex}`);
             const donationsBtn = document.getElementById(`btn-donations-${contestIndex}-${candidateIndex}`);
+            const recordBtn = document.getElementById(`btn-record-${contestIndex}-${candidateIndex}`);
+
+            // Hide all views
+            linksDiv?.classList.add('hidden');
+            donationsDiv?.classList.add('hidden');
+            recordDiv?.classList.add('hidden');
+
+            // Reset all button styles
+            [linksBtn, donationsBtn, recordBtn].forEach(btn => {
+                if (btn) {
+                    btn.classList.remove('bg-gray-600', 'text-white');
+                    btn.classList.add('bg-gray-200', 'text-gray-700');
+                }
+            });
 
             if (view === 'links') {
                 linksDiv.classList.remove('hidden');
-                donationsDiv.classList.add('hidden');
                 linksBtn.classList.remove('bg-gray-200', 'text-gray-700');
                 linksBtn.classList.add('bg-gray-600', 'text-white');
-                donationsBtn.classList.remove('bg-gray-600', 'text-white');
-                donationsBtn.classList.add('bg-gray-200', 'text-gray-700');
-            } else {
+            } else if (view === 'donations') {
                 linksDiv.classList.add('hidden');
                 donationsDiv.classList.remove('hidden');
                 linksBtn.classList.remove('bg-gray-600', 'text-white');
@@ -215,6 +290,70 @@
                     }
 
                     fecDiv.dataset.loaded = 'true';
+                }
+            } else if (view === 'record') {
+                recordDiv.classList.remove('hidden');
+                recordBtn.classList.remove('bg-gray-200', 'text-gray-700');
+                recordBtn.classList.add('bg-gray-600', 'text-white');
+
+                // Fetch GovTrack data on first click
+                const gtDiv = document.getElementById(`govtrack-${contestIndex}-${candidateIndex}`);
+                if (gtDiv && !gtDiv.dataset.loaded) {
+                    gtDiv.innerHTML = '<div class="text-gray-500">Loading legislative record...</div>';
+
+                    const contest = ballotData.contests[contestIndex];
+                    const candidate = contest.candidates[candidateIndex];
+
+                    const gtData = await fetchGovTrackData(candidate.name, contest.office || '');
+
+                    if (gtData) {
+                        let html = '';
+
+                        // Bio & ideology
+                        if (gtData.bio) {
+                            html += '<div class="mb-3">';
+                            html += `<span class="font-semibold">Party:</span> ${gtData.currentRole.party || 'Unknown'}<br>`;
+                            if (gtData.bio.birthday) html += `<span class="font-semibold">Born:</span> ${gtData.bio.birthday}<br>`;
+                            if (gtData.ideologyScore) html += `<span class="font-semibold">Ideology Score:</span> ${gtData.ideologyScore.toFixed(2)} <span class="text-gray-500">(0=most conservative, 1=most liberal)</span><br>`;
+                            html += '</div>';
+                        }
+
+                        // Committees
+                        if (gtData.committees && gtData.committees.length > 0) {
+                            html += '<div class="mb-3"><span class="font-semibold">Committees:</span><ul class="list-disc list-inside ml-2">';
+                            gtData.committees.forEach(committee => {
+                                html += `<li>${committee}</li>`;
+                            });
+                            html += '</ul></div>';
+                        }
+
+                        // Bills sponsored
+                        if (gtData.billsSponsored && gtData.billsSponsored.length > 0) {
+                            html += '<div class="mb-3"><span class="font-semibold">Recent Bills Sponsored:</span><ul class="list-disc list-inside ml-2">';
+                            gtData.billsSponsored.slice(0, 5).forEach(bill => {
+                                const title = bill.title_without_number || bill.title || 'Untitled';
+                                html += `<li>${bill.display_number}: ${title.substring(0, 100)}${title.length > 100 ? '...' : ''}</li>`;
+                            });
+                            html += '</ul></div>';
+                        }
+
+                        // Recent votes
+                        if (gtData.recentVotes && gtData.recentVotes.length > 0) {
+                            html += '<div class="mb-3"><span class="font-semibold">Recent Votes:</span><ul class="list-disc list-inside ml-2">';
+                            gtData.recentVotes.slice(0, 10).forEach(vote => {
+                                const voteOption = vote.option?.value || vote.option || 'Unknown';
+                                const voteQuestion = vote.vote?.question || 'Unknown bill';
+                                html += `<li><strong>${voteOption}</strong> on ${voteQuestion.substring(0, 80)}${voteQuestion.length > 80 ? '...' : ''}</li>`;
+                            });
+                            html += '</ul></div>';
+                        }
+
+                        gtDiv.innerHTML = html || '<div class="text-gray-500">No legislative record available</div>';
+                    } else {
+                        gtDiv.innerHTML = '<div class="text-gray-500">Not a current federal legislator - no voting record available</div>';
+                    }
+
+                    gtDiv.dataset.loaded = 'true';
                 }
             }
         }
@@ -432,6 +571,10 @@
                             if (donationsBtn) {
                                 donationsBtn.classList.remove('hidden');
                             }
+                            const recordBtn = document.getElementById(`btn-record-${contestIndex}-${candidateIndex}`);
+                            if (recordBtn) {
+                                recordBtn.classList.remove('hidden');
+                            }
                         });
                     }
                 });
@@ -505,6 +648,11 @@
                                                     class="hidden text-xs px-3 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300">
                                                 Donations
                                             </button>
+                                            <button onclick="toggleCandidateView(${contestIndex}, ${candidateIndex}, 'record')"
+                                                    id="btn-record-${contestIndex}-${candidateIndex}"
+                                                    class="hidden text-xs px-3 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300">
+                                                Record
+                                            </button>
                                         </div>
                                     </div>
 
@@ -562,6 +710,10 @@
 
                                     <div class="mt-3 space-y-2 no-print hidden" id="donations-${contestIndex}-${candidateIndex}">
                                         <div id="fec-${contestIndex}-${candidateIndex}" class="text-xs text-gray-600"></div>
+                                    </div>
+
+                                    <div class="mt-3 space-y-2 no-print hidden" id="record-${contestIndex}-${candidateIndex}">
+                                        <div id="govtrack-${contestIndex}-${candidateIndex}" class="text-xs text-gray-600"></div>
                                     </div>
                                 </div>
                             </label>
