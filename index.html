@@ -349,7 +349,7 @@
                             { label: 'Passed Committee', statuses: ['reported'] },
                             { label: 'Introduced', statuses: ['introduced','referred','prov_kill_suspensionfailed','prov_kill_cloturefailed','vetoed_pocket','failed_originating_house','failed_originating_senate'] },
                         ];
-                        html += '<div class="mb-3"><span class="font-semibold">Bills Sponsored</span> <span class="text-gray-400 text-xs">(from 50 most recent; alive = can still pass this Congress)</span>:';
+                        html += '<div class="mb-3"><span class="font-semibold">Bills Sponsored</span> <span class="text-gray-400 text-xs">(from 50 most recent)</span>:';
                         const remainingBills = new Set(gtData.billsSponsored.map(b => b.display_number));
                         let billsDisplayed = 0;
                         billGroups.forEach(group => {
@@ -366,8 +366,7 @@
                                 billsToShow.forEach(bill => {
                                     const title = bill.title_without_number || bill.title || 'Untitled';
                                     const year = bill.introduced_date?.substring(0, 4);
-                                    const alive = bill.is_alive ? 'alive' : `dead; ${year}`;
-                                    html += `<li>${bill.display_number}: ${title.substring(0, 100)}${title.length > 100 ? '...' : ''} <span class="text-gray-400">(${alive})</span></li>`;
+                                    html += `<li>${bill.display_number}: ${title.substring(0, 100)}${title.length > 100 ? '...' : ''} <span class="text-gray-400">(${year})</span></li>`;
                                 });
                                 billsDisplayed += billsToShow.length;
                                 html += '</ul>';
