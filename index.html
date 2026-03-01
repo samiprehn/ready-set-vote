@@ -353,7 +353,7 @@
                             { label: 'Passed Committee', statuses: ['reported'] },
                             { label: 'Introduced', statuses: ['introduced','referred','prov_kill_suspensionfailed','prov_kill_cloturefailed','vetoed_pocket','failed_originating_house','failed_originating_senate'] },
                         ];
-                        html += '<div class="mb-3"><span class="font-semibold">Bills Sponsored:</span>';
+                        html += '<div class="mb-3"><span class="font-semibold">Bills Sponsored</span> <span class="text-gray-400 text-xs">(limit 20)</span>:';
                         const remainingBills = new Set(gtData.billsSponsored.map(b => b.display_number));
                         let billsDisplayed = 0;
                         billGroups.forEach(group => {
