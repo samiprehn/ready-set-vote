@@ -163,7 +163,7 @@
         let fecDataCache = {};
 
         // Toggle between links and donations view for a candidate
-        function toggleCandidateView(contestIndex, candidateIndex, view) {
+        async function toggleCandidateView(contestIndex, candidateIndex, view) {
             const linksDiv = document.getElementById(`links-${contestIndex}-${candidateIndex}`);
             const donationsDiv = document.getElementById(`donations-${contestIndex}-${candidateIndex}`);
             const linksBtn = document.getElementById(`btn-links-${contestIndex}-${candidateIndex}`);
@@ -183,6 +183,39 @@
                 linksBtn.classList.add('bg-gray-200', 'text-gray-700');
                 donationsBtn.classList.remove('bg-gray-200', 'text-gray-700');
                 donationsBtn.classList.add('bg-gray-600', 'text-white');
+
+                // Fetch FEC data on first click
+                const fecDiv = document.getElementById(`fec-${contestIndex}-${candidateIndex}`);
+                if (fecDiv && !fecDiv.dataset.loaded) {
+                    fecDiv.innerHTML = '<div class="text-gray-500">Loading contribution data...</div>';
+
+                    const contest = ballotData.contests[contestIndex];
+                    const candidate = contest.candidates[candidateIndex];
+                    const state = ballotData.normalizedInput?.state || '';
+                    const districtMatch = contest.district?.name?.match(/\d+/);
+                    const district = districtMatch ? districtMatch[0] : '';
+
+                    const fecData = await fetchFECData(candidate.name, contest.office || '', state, district);
+
+                    if (fecData && fecData.topContributors && fecData.topContributors.length > 0) {
+                        const formatMoney = (amount) => {
+                            if (amount >= 1000000) return `$${(amount / 1000000).toFixed(1)}M`;
+                            if (amount >= 1000) return `$${(amount / 1000).toFixed(0)}K`;
+                            return `$${amount.toFixed(0)}`;
+                        };
+
+                        let fecHtml = '<div class="mt-1"><span class="font-semibold">Top Contributors</span> <span class="text-gray-500 font-normal">(all years):</span><ul class="list-disc list-inside ml-2">';
+                        fecData.topContributors.forEach(contrib => {
+                            fecHtml += `<li>${contrib.name}${contrib.employer ? ` (${contrib.employer})` : ''}: ${formatMoney(contrib.amount)}</li>`;
+                        });
+                        fecHtml += '</ul></div>';
+                        fecDiv.innerHTML = fecHtml;
+                    } else {
+                        fecDiv.innerHTML = '<div class="text-gray-500">No contribution data available</div>';
+                    }
+
+                    fecDiv.dataset.loaded = 'true';
+                }
             }
         }
 
@@ -232,16 +265,6 @@
 
                 if (!candidate) candidate = data.results[0]; // Fallback to first result
 
-                // Fetch financial totals for the most recent cycle
-                const totalsPath = `/candidate/${candidate.candidate_id}/totals/?sort_hide_null=true&per_page=1`;
-                const totalsResponse = await fetch(`${WORKER_URL}?fec=${encodeURIComponent(totalsPath)}`);
-                if (!totalsResponse.ok) return null;
-
-                const totalsData = await totalsResponse.json();
-                if (!totalsData.results || totalsData.results.length === 0) return null;
-
-                const financials = totalsData.results[0];
-
                 // Fetch top contributors (from all cycles)
                 const contributorsPath = `/schedules/schedule_a/?committee_id=${candidate.principal_committees?.[0]?.committee_id || ''}&sort=-contribution_receipt_amount&per_page=50`;
                 let topContributors = [];
@@ -276,10 +299,6 @@
                 }
 
                 const result = {
-                    raised: financials.receipts || 0,
-                    spent: financials.disbursements || 0,
-                    cashOnHand: financials.cash_on_hand_end_period || 0,
-                    cycle: financials.cycle,
                     topContributors: topContributors
                 };
 
@@ -399,62 +418,22 @@
                 data.contests.forEach((contest, contestIndex) => {
                     const contestCard = createContestCard(contest, contestIndex);
                     contestsDiv.appendChild(contestCard);
-                });
 
-                // Fetch FEC data for federal candidates
-                const state = data.normalizedInput?.state || '';
-                data.contests.forEach(async (contest, contestIndex) => {
-                    if (!contest.candidates) return;
+                    // Show Donations button for federal races
+                    const officeName = (contest.office || '').toLowerCase();
+                    const isFederal = officeName.includes('president') ||
+                                    officeName.includes('senate') ||
+                                    officeName.includes('house') ||
+                                    officeName.includes('representative');
 
-                    // Extract district number from district name if available
-                    const districtMatch = contest.district?.name?.match(/\d+/);
-                    const district = districtMatch ? districtMatch[0] : '';
-
-                    contest.candidates.forEach(async (candidate, candidateIndex) => {
-                        const fecData = await fetchFECData(
-                            candidate.name,
-                            contest.office || '',
-                            state,
-                            district
-                        );
-
-                        if (fecData) {
-                            const fecDiv = document.getElementById(`fec-${contestIndex}-${candidateIndex}`);
+                    if (isFederal && contest.candidates) {
+                        contest.candidates.forEach((candidate, candidateIndex) => {
                             const donationsBtn = document.getElementById(`btn-donations-${contestIndex}-${candidateIndex}`);
-
-                            // Show the Donations button since we have data
                             if (donationsBtn) {
                                 donationsBtn.classList.remove('hidden');
                             }
-
-                            if (fecDiv) {
-                                const formatMoney = (amount) => {
-                                    if (amount >= 1000000) return `$${(amount / 1000000).toFixed(1)}M`;
-                                    if (amount >= 1000) return `$${(amount / 1000).toFixed(0)}K`;
-                                    return `$${amount.toFixed(0)}`;
-                                };
-
-                                let fecHtml = `
-                                    <div class="mb-1">
-                                        <span class="font-semibold">Campaign Finance (${fecData.cycle}):</span>
-                                        Raised: ${formatMoney(fecData.raised)} |
-                                        Spent: ${formatMoney(fecData.spent)} |
-                                        Cash: ${formatMoney(fecData.cashOnHand)}
-                                    </div>
-                                `;
-
-                                if (fecData.topContributors && fecData.topContributors.length > 0) {
-                                    fecHtml += '<div class="mt-1"><span class="font-semibold">Top Contributors</span> <span class="text-gray-500 font-normal">(all years):</span><ul class="list-disc list-inside ml-2">';
-                                    fecData.topContributors.forEach(contrib => {
-                                        fecHtml += `<li>${contrib.name}${contrib.employer ? ` (${contrib.employer})` : ''}: ${formatMoney(contrib.amount)}</li>`;
-                                    });
-                                    fecHtml += '</ul></div>';
-                                }
-
-                                fecDiv.innerHTML = fecHtml;
-                            }
-                        }
-                    });
+                        });
+                    }
                 });
             } else {
                 contestsDiv.innerHTML = '<div class="bg-white rounded-xl shadow-lg p-6"><p class="text-gray-600">No contests found for this address.</p></div>';
