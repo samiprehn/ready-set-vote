@@ -126,8 +126,8 @@
             <!-- Election Info -->
             <div id="electionInfo" class="bg-white rounded-xl shadow-lg p-6 mb-6 no-print"></div>
 
-            <!-- Polling Location -->
-            <div id="pollingInfo" class="bg-white rounded-xl shadow-lg p-6 mb-6 no-print"></div>
+            <!-- Where to Vote -->
+            <div id="whereToVote" class="bg-white rounded-xl shadow-lg p-6 mb-6 no-print hidden"></div>
 
             <!-- Contests/Races -->
             <div id="contests" class="space-y-6"></div>
@@ -581,33 +581,52 @@
                     </div>
                 `;
 
-                // Update print header with election info
-                let printInfo = `<div><strong>${data.election.name}</strong></div>`;
-
-                if (data.pollingLocations && data.pollingLocations.length > 0) {
-                    const location = data.pollingLocations[0];
-                    const address = location.address;
-                    const hoursText = location.pollingHours ? `<span style="float: right;">Hours: ${location.pollingHours}</span>` : '';
-                    printInfo += `<div>${hoursText}Polling Location: ${address.line1}, ${address.city}, ${address.state} ${address.zip}</div>`;
-                }
-
-                document.getElementById('printElectionInfo').innerHTML = printInfo;
+                document.getElementById('printElectionInfo').innerHTML = `<div><strong>${data.election.name}</strong></div>`;
             }
 
-            // Display polling location
-            if (data.pollingLocations && data.pollingLocations.length > 0) {
-                const location = data.pollingLocations[0];
-                const address = location.address;
-                document.getElementById('pollingInfo').innerHTML = `
-                    <div class="flex justify-between items-center mb-2">
-                        <h3 class="text-xl font-bold text-gray-800">📍 Your Polling Location</h3>
-                        ${location.pollingHours ? `<p class="text-gray-600">🕐 Hours: ${location.pollingHours}</p>` : ''}
-                    </div>
-                    <p class="text-gray-700">
-                        ${address.line1}<br>
-                        ${address.city}, ${address.state} ${address.zip}
-                    </p>
+            // Display where to vote
+            const hasPolling = data.pollingLocations?.length > 0;
+            const hasEarly = data.earlyVoteSites?.length > 0;
+            const hasDropOff = data.dropOffLocations?.length > 0;
+
+            if (hasPolling || hasEarly || hasDropOff) {
+                const whereDiv = document.getElementById('whereToVote');
+                whereDiv.classList.remove('hidden');
+
+                function renderLocations(locations, icon, title) {
+                    if (!locations?.length) return '';
+                    const items = locations.map(loc => {
+                        const a = loc.address;
+                        const name = a.locationName ? `<div class="font-semibold text-gray-800">${a.locationName}</div>` : '';
+                        const addr = `<div class="text-gray-600">${a.line1}, ${a.city}, ${a.state} ${a.zip}</div>`;
+                        const hours = loc.pollingHours ? `<div class="text-gray-500 text-sm">Hours: ${loc.pollingHours}</div>` : '';
+                        const dates = (loc.startDate && loc.endDate)
+                            ? `<div class="text-gray-500 text-sm">${loc.startDate} – ${loc.endDate}</div>` : '';
+                        const notes = loc.notes ? `<div class="text-gray-400 text-xs mt-1">${loc.notes}</div>` : '';
+                        return `<div class="py-2 border-b last:border-b-0 border-gray-100">${name}${addr}${hours}${dates}${notes}</div>`;
+                    }).join('');
+                    return `<div class="mb-4 last:mb-0">
+                        <h4 class="font-bold text-gray-700 mb-2">${icon} ${title}</h4>
+                        ${items}
+                    </div>`;
+                }
+
+                whereDiv.innerHTML = `
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">📍 Where to Vote</h3>
+                    ${renderLocations(data.pollingLocations, '🗳️', 'Election Day Polling')}
+                    ${renderLocations(data.earlyVoteSites, '📅', 'Early Voting')}
+                    ${renderLocations(data.dropOffLocations, '📬', 'Ballot Drop-Off')}
                 `;
+
+                // Update print header with first polling location
+                if (hasPolling) {
+                    const loc = data.pollingLocations[0];
+                    const a = loc.address;
+                    const existing = document.getElementById('printElectionInfo').innerHTML;
+                    const hoursText = loc.pollingHours ? ` Hours: ${loc.pollingHours}` : '';
+                    document.getElementById('printElectionInfo').innerHTML =
+                        existing + `<div>Polling: ${a.line1}, ${a.city}, ${a.state} ${a.zip}${hoursText}</div>`;
+                }
             }
 
             // Display contests
