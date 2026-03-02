@@ -566,7 +566,8 @@
 
             // Display election info
             if (data.election) {
-                const electionDate = new Date(data.election.electionDay).toLocaleDateString('en-US', {
+                const [ey, em, ed] = data.election.electionDay.split('-').map(Number);
+                const electionDate = new Date(ey, em - 1, ed).toLocaleDateString('en-US', {
                     weekday: 'long',
                     year: 'numeric',
                     month: 'long',
