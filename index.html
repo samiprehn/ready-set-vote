@@ -593,6 +593,14 @@
                 const whereDiv = document.getElementById('whereToVote');
                 whereDiv.classList.remove('hidden');
 
+                // Store location data keyed by id for the radio onchange handler
+                const votingLocData = {};
+
+                function parseDays(pollingHours) {
+                    if (!pollingHours) return [];
+                    return pollingHours.split(/(?=(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun),)/).map(s => s.trim()).filter(Boolean);
+                }
+
                 let locIdCounter = 0;
 
                 function renderLocations(locations, icon, title, selectable) {
@@ -600,36 +608,42 @@
                     const items = locations.map(loc => {
                         const locId = `voting-loc-${locIdCounter++}`;
                         const a = loc.address;
-                        const name = a.locationName ? `<div class="font-semibold text-gray-800">${a.locationName}</div>` : '';
+                        const days = parseDays(loc.pollingHours);
+
+                        // Store for print handler
+                        votingLocData[locId] = {
+                            name: a.locationName || '',
+                            addr: `${a.line1}, ${a.city}, ${a.state} ${a.zip}`,
+                            days
+                        };
+
+                        const nameHtml = a.locationName ? `<div class="font-semibold text-gray-800">${a.locationName}</div>` : '';
 
                         let openHtml = '';
-                        if (loc.pollingHours) {
-                            const days = loc.pollingHours.split(/(?=(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun),)/).map(s => s.trim()).filter(Boolean);
-                            if (days.length > 1) {
-                                const firstDay = days[0].split(':')[0].trim();
-                                const lastDay = days[days.length - 1].split(':')[0].trim();
-                                const expandId = `${locId}-expand`;
-                                const daysHtml = days.map(d => `<div class="text-xs text-gray-500">${d}</div>`).join('');
-                                openHtml = `<span class="text-sm whitespace-nowrap">
-                                    <button onclick="const el=document.getElementById('${expandId}');el.classList.toggle('hidden');this.textContent=el.classList.contains('hidden')?'Open: ${firstDay} – ${lastDay} ▸':'Open: ${firstDay} – ${lastDay} ▾'" class="text-blue-600 hover:underline">Open: ${firstDay} – ${lastDay} ▸</button>
-                                    <div id="${expandId}" class="hidden mt-1">${daysHtml}</div>
-                                </span>`;
-                            } else {
-                                openHtml = `<span class="text-gray-500 text-sm whitespace-nowrap">Open: ${loc.pollingHours}</span>`;
-                            }
+                        if (days.length > 1) {
+                            const firstDay = days[0].split(':')[0].trim();
+                            const lastDay = days[days.length - 1].split(':')[0].trim();
+                            const expandId = `${locId}-expand`;
+                            const daysHtml = days.map(d => `<div class="text-xs text-gray-500">${d}</div>`).join('');
+                            openHtml = `<span class="text-sm">
+                                <button onclick="const el=document.getElementById('${expandId}');el.classList.toggle('hidden');this.textContent=el.classList.contains('hidden')?'Open: ${firstDay} – ${lastDay} ▸':'Open: ${firstDay} – ${lastDay} ▾'" class="text-blue-600 hover:underline whitespace-nowrap">Open: ${firstDay} – ${lastDay} ▸</button>
+                                <div id="${expandId}" class="hidden mt-1">${daysHtml}</div>
+                            </span>`;
+                        } else if (days.length === 1) {
+                            openHtml = `<span class="text-gray-500 text-sm whitespace-nowrap">Open: ${days[0]}</span>`;
                         }
 
-                        const checkbox = selectable ? `<label class="cursor-pointer mt-0.5">
+                        const radio = selectable ? `<label class="cursor-pointer mt-0.5">
                             <input type="radio" name="selected-polling-loc" value="${locId}"
-                                onchange="document.getElementById('printPollingLoc').textContent='${(a.locationName || '').replace(/'/g,"\\'")} ${a.line1}, ${a.city}, ${a.state} ${a.zip}'"
+                                onchange="selectVotingLoc('${locId}')"
                                 class="w-4 h-4 accent-green-600" />
                         </label>` : '';
 
                         return `<div class="py-2 border-b last:border-b-0 border-gray-100">
-                            ${name}
+                            ${nameHtml}
                             <div class="flex justify-between items-start gap-2">
                                 <div class="flex items-start gap-2">
-                                    ${checkbox}
+                                    ${radio}
                                     <span class="text-gray-600">${a.line1}, ${a.city}, ${a.state} ${a.zip}</span>
                                 </div>
                                 ${openHtml}
@@ -650,9 +664,19 @@
                     ${renderLocations(data.dropOffLocations, '📬', 'Ballot Drop-Off', false)}
                 `;
 
+                window.selectVotingLoc = function(locId) {
+                    const loc = votingLocData[locId];
+                    if (!loc) return;
+                    const lines = [
+                        `Voting: ${loc.name ? loc.name + ', ' : ''}${loc.addr}`,
+                        ...loc.days
+                    ].join('\n');
+                    document.getElementById('printPollingLoc').textContent = lines;
+                };
+
                 // Print polling location comes from radio selection
                 document.getElementById('printElectionInfo').innerHTML +=
-                    `<div id="printPollingLoc"></div>`;
+                    `<div id="printPollingLoc" style="white-space: pre-line;"></div>`;
             }
 
             // Display contests
