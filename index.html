@@ -172,7 +172,7 @@
             const firstName = nameParts[0];
 
             try {
-                const response = await fetch(`https://www.govtrack.us/api/v2/person?q=${encodeURIComponent(lastName)}&limit=10`);
+                const response = await fetch(`https://www.govtrack.us/api/v2/person?q=${encodeURIComponent(firstName + ' ' + lastName)}&limit=10`);
                 if (!response.ok) { govTrackPersonCache[candidateName] = null; return null; }
                 const data = await response.json();
                 const match = (data.objects || []).find(p =>
