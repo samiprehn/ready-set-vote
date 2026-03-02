@@ -599,7 +599,17 @@
                         const a = loc.address;
                         const name = a.locationName ? `<div class="font-semibold text-gray-800">${a.locationName}</div>` : '';
                         const addr = `<div class="text-gray-600">${a.line1}, ${a.city}, ${a.state} ${a.zip}</div>`;
-                        const hours = loc.pollingHours ? `<div class="text-gray-500 text-sm">Hours: ${loc.pollingHours}</div>` : '';
+                        let hours = '';
+                        if (loc.pollingHours) {
+                            const days = loc.pollingHours.split(/(?=(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun),)/).map(s => s.trim()).filter(Boolean);
+                            if (days.length > 1) {
+                                const firstDay = days[0].split(':')[0].trim();
+                                const lastDay = days[days.length - 1].split(':')[0].trim();
+                                hours = `<div class="text-gray-500 text-sm">Open: ${firstDay} – ${lastDay}</div>`;
+                            } else {
+                                hours = `<div class="text-gray-500 text-sm">Hours: ${loc.pollingHours}</div>`;
+                            }
+                        }
                         const dates = (loc.startDate && loc.endDate)
                             ? `<div class="text-gray-500 text-sm">${loc.startDate} – ${loc.endDate}</div>` : '';
                         const notes = loc.notes ? `<div class="text-gray-400 text-xs mt-1">${loc.notes}</div>` : '';
