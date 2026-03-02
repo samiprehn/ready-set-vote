@@ -598,22 +598,23 @@
                     const items = locations.map(loc => {
                         const a = loc.address;
                         const name = a.locationName ? `<div class="font-semibold text-gray-800">${a.locationName}</div>` : '';
-                        const addr = `<div class="text-gray-600">${a.line1}, ${a.city}, ${a.state} ${a.zip}</div>`;
-                        let hours = '';
+                        let openText = '';
                         if (loc.pollingHours) {
                             const days = loc.pollingHours.split(/(?=(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun),)/).map(s => s.trim()).filter(Boolean);
                             if (days.length > 1) {
                                 const firstDay = days[0].split(':')[0].trim();
                                 const lastDay = days[days.length - 1].split(':')[0].trim();
-                                hours = `<div class="text-gray-500 text-sm">Open: ${firstDay} – ${lastDay}</div>`;
+                                openText = `Open: ${firstDay} – ${lastDay}`;
                             } else {
-                                hours = `<div class="text-gray-500 text-sm">Hours: ${loc.pollingHours}</div>`;
+                                openText = `Open: ${loc.pollingHours}`;
                             }
                         }
-                        const dates = (loc.startDate && loc.endDate)
-                            ? `<div class="text-gray-500 text-sm">${loc.startDate} – ${loc.endDate}</div>` : '';
+                        const addr = `<div class="flex justify-between items-baseline gap-2">
+                            <span class="text-gray-600">${a.line1}, ${a.city}, ${a.state} ${a.zip}</span>
+                            ${openText ? `<span class="text-gray-500 text-sm whitespace-nowrap">${openText}</span>` : ''}
+                        </div>`;
                         const notes = loc.notes ? `<div class="text-gray-400 text-xs mt-1">${loc.notes}</div>` : '';
-                        return `<div class="py-2 border-b last:border-b-0 border-gray-100">${name}${addr}${hours}${dates}${notes}</div>`;
+                        return `<div class="py-2 border-b last:border-b-0 border-gray-100">${name}${addr}${notes}</div>`;
                     }).join('');
                     return `<div class="mb-4 last:mb-0">
                         <h4 class="font-bold text-gray-700 mb-2">${icon} ${title}</h4>
