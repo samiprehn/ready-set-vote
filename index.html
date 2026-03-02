@@ -175,10 +175,15 @@
                 const response = await fetch(`https://www.govtrack.us/api/v2/person?q=${encodeURIComponent(firstName + ' ' + lastName)}&limit=10`);
                 if (!response.ok) { govTrackPersonCache[candidateName] = null; return null; }
                 const data = await response.json();
-                const match = (data.objects || []).find(p =>
-                    p.name?.toLowerCase().includes(lastName.toLowerCase()) &&
-                    p.name?.toLowerCase().includes(firstName.toLowerCase())
-                );
+                const match = (data.objects || []).find(p => {
+                    if (!p.name?.toLowerCase().includes(lastName.toLowerCase())) return false;
+                    if (!p.name?.toLowerCase().includes(firstName.toLowerCase())) return false;
+                    if (p.birthday) {
+                        const age = (new Date() - new Date(p.birthday)) / (365.25 * 24 * 60 * 60 * 1000);
+                        if (age > 100) return false;
+                    }
+                    return true;
+                });
                 const personId = match?.link?.split('/').filter(Boolean).pop() || null;
                 govTrackPersonCache[candidateName] = personId;
                 return personId;
