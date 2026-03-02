@@ -165,8 +165,9 @@
         let govTrackCache = {};
         let govTrackPersonCache = {};
 
-        async function lookupGovTrackPerson(candidateName) {
-            if (candidateName in govTrackPersonCache) return govTrackPersonCache[candidateName];
+        async function lookupGovTrackPerson(candidateName, state) {
+            const cacheKey = `${candidateName}-${state || ''}`;
+            if (cacheKey in govTrackPersonCache) return govTrackPersonCache[cacheKey];
 
             const nameParts = candidateName.trim().split(' ');
             const lastName = nameParts[nameParts.length - 1];
@@ -181,7 +182,7 @@
                 }
                 if (!data?.objects?.length) {
                     const r = await fetch(`https://www.govtrack.us/api/v2/person?q=${encodeURIComponent(firstName + ' ' + lastName)}&limit=10`);
-                    if (!r.ok) { govTrackPersonCache[candidateName] = null; return null; }
+                    if (!r.ok) { govTrackPersonCache[cacheKey] = null; return null; }
                     data = await r.json();
                 }
                 const match = (data.objects || []).find(p => {
@@ -191,23 +192,27 @@
                         const age = (new Date() - new Date(p.birthday)) / (365.25 * 24 * 60 * 60 * 1000);
                         if (age > 100) return false;
                     }
+                    if (state) {
+                        const stateMatch = p.name?.match(/\[.-([A-Z]{2})\d*\]/);
+                        if (stateMatch && stateMatch[1] !== state.toUpperCase()) return false;
+                    }
                     return true;
                 });
                 const personId = match?.link?.split('/').filter(Boolean).pop() || null;
-                govTrackPersonCache[candidateName] = personId;
+                govTrackPersonCache[cacheKey] = personId;
                 return personId;
             } catch {
-                govTrackPersonCache[candidateName] = null;
+                govTrackPersonCache[cacheKey] = null;
                 return null;
             }
         }
 
         // Fetch GovTrack data for a legislator
-        async function fetchGovTrackData(candidateName) {
+        async function fetchGovTrackData(candidateName, state) {
             if (govTrackCache[candidateName]) return govTrackCache[candidateName];
 
             try {
-                const personId = await lookupGovTrackPerson(candidateName);
+                const personId = await lookupGovTrackPerson(candidateName, state);
                 if (!personId) return null;
 
                 // Fetch roles first to calculate years in Congress for bill limit
@@ -319,7 +324,7 @@
                     const contest = ballotData.contests[contestIndex];
                     const candidate = contest.candidates[candidateIndex];
 
-                    const gtData = await fetchGovTrackData(candidate.name);
+                    const gtData = await fetchGovTrackData(candidate.name, ballotData.normalizedInput?.state || '');
 
                     if (gtData) {
                         let html = '';
@@ -626,7 +631,8 @@
                             if (donationsBtn) donationsBtn.classList.remove('hidden');
 
                             // Show Record button only if GovTrack has this person
-                            lookupGovTrackPerson(candidate.name).then(personId => {
+                            const state = ballotData.normalizedInput?.state || '';
+                            lookupGovTrackPerson(candidate.name, state).then(personId => {
                                 if (personId) {
                                     const recordBtn = document.getElementById(`btn-record-${contestIndex}-${candidateIndex}`);
                                     if (recordBtn) recordBtn.classList.remove('hidden');
