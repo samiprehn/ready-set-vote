@@ -680,6 +680,14 @@
                 // Print polling location comes from radio selection
                 document.getElementById('printElectionInfo').innerHTML +=
                     `<div id="printPollingLoc" style="white-space: pre-line;"></div>`;
+
+                // Default to first election day polling location
+                if (hasPolling) {
+                    const firstId = 'voting-loc-0';
+                    const firstRadio = document.querySelector(`input[value="${firstId}"]`);
+                    if (firstRadio) firstRadio.checked = true;
+                    selectVotingLoc(firstId);
+                }
             }
 
             // Display contests
