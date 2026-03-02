@@ -171,14 +171,19 @@
             const nameParts = candidateName.trim().split(' ');
             const lastName = nameParts[nameParts.length - 1];
             const firstName = nameParts[0];
-            const searchName = nameParts.length > 2
-                ? candidateName.trim().replace(/\./g, '').replace(/\s+/g, ' ')
-                : `${firstName} ${lastName}`;
-
             try {
-                const response = await fetch(`https://www.govtrack.us/api/v2/person?q=${encodeURIComponent(searchName)}&limit=10`);
-                if (!response.ok) { govTrackPersonCache[candidateName] = null; return null; }
-                const data = await response.json();
+                // Try full name first (helps disambiguate), fall back to first+last if no results
+                let data = null;
+                if (nameParts.length > 2) {
+                    const fullName = candidateName.trim().replace(/\./g, '').replace(/\s+/g, ' ');
+                    const r = await fetch(`https://www.govtrack.us/api/v2/person?q=${encodeURIComponent(fullName)}&limit=10`);
+                    if (r.ok) data = await r.json();
+                }
+                if (!data?.objects?.length) {
+                    const r = await fetch(`https://www.govtrack.us/api/v2/person?q=${encodeURIComponent(firstName + ' ' + lastName)}&limit=10`);
+                    if (!r.ok) { govTrackPersonCache[candidateName] = null; return null; }
+                    data = await r.json();
+                }
                 const match = (data.objects || []).find(p => {
                     if (!p.name?.toLowerCase().includes(lastName.toLowerCase())) return false;
                     if (!p.name?.toLowerCase().includes(firstName.toLowerCase())) return false;
