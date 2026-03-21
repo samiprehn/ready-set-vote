@@ -764,18 +764,26 @@
                     const yesSelected = userSelections[contestIndex] === 'yes';
                     const noSelected = userSelections[contestIndex] === 'no';
                     html += `
-                        <div class="flex gap-3 mt-2">
-                            <div class="border rounded-lg p-4 flex-1 hover:opacity-90 transition-colors ${yesSelected ? 'bg-green-50 border-green-400' : 'bg-gray-50 border-gray-200'} cursor-pointer" onclick="handleReferendumSelection(${contestIndex}, 'yes')">
-                                <label class="cursor-pointer flex items-center gap-2">
-                                    <input type="radio" name="referendum-${contestIndex}" value="yes" ${yesSelected ? 'checked' : ''} onchange="handleReferendumSelection(${contestIndex}, 'yes')" class="w-4 h-4 text-green-600" />
-                                    <span class="font-semibold text-gray-800">Yes</span>
-                                </label>
+                        <div class="space-y-4 mt-2">
+                            <div class="border rounded-lg p-4 hover:opacity-90 transition-colors ${yesSelected ? 'bg-green-50 border-green-400' : 'bg-gray-50 border-gray-200'} cursor-pointer print-candidate" onclick="handleReferendumSelection(${contestIndex}, 'yes')">
+                                <div class="flex items-start gap-3">
+                                    <label class="cursor-pointer mt-1">
+                                        <input type="radio" name="referendum-${contestIndex}" value="yes" ${yesSelected ? 'checked' : ''} onchange="handleReferendumSelection(${contestIndex}, 'yes')" class="w-5 h-5 text-green-600" />
+                                    </label>
+                                    <div class="flex-1">
+                                        <span class="font-bold text-gray-900 text-lg print-text-sm">Yes</span>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="border rounded-lg p-4 flex-1 hover:opacity-90 transition-colors ${noSelected ? 'bg-red-50 border-red-400' : 'bg-gray-50 border-gray-200'} cursor-pointer" onclick="handleReferendumSelection(${contestIndex}, 'no')">
-                                <label class="cursor-pointer flex items-center gap-2">
-                                    <input type="radio" name="referendum-${contestIndex}" value="no" ${noSelected ? 'checked' : ''} onchange="handleReferendumSelection(${contestIndex}, 'no')" class="w-4 h-4 text-red-600" />
-                                    <span class="font-semibold text-gray-800">No</span>
-                                </label>
+                            <div class="border rounded-lg p-4 hover:opacity-90 transition-colors ${noSelected ? 'bg-red-50 border-red-400' : 'bg-gray-50 border-gray-200'} cursor-pointer print-candidate" onclick="handleReferendumSelection(${contestIndex}, 'no')">
+                                <div class="flex items-start gap-3">
+                                    <label class="cursor-pointer mt-1">
+                                        <input type="radio" name="referendum-${contestIndex}" value="no" ${noSelected ? 'checked' : ''} onchange="handleReferendumSelection(${contestIndex}, 'no')" class="w-5 h-5 text-red-600" />
+                                    </label>
+                                    <div class="flex-1">
+                                        <span class="font-bold text-gray-900 text-lg print-text-sm">No</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     `;
