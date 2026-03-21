@@ -668,7 +668,7 @@
                     <h3 class="text-xl font-bold text-gray-800 mb-4">📍 Where to Vote</h3>
                     ${renderLocations(data.pollingLocations, '🗳️', 'Election Day Polling', true)}
                     ${renderLocations(data.earlyVoteSites, '📅', 'Early Voting', true)}
-                    ${renderLocations(data.dropOffLocations, '📬', 'Ballot Drop-Off', false)}
+                    ${renderLocations(data.dropOffLocations, '📬', 'Ballot Drop-Off', true)}
                 `;
 
                 window.selectVotingLoc = function(locId) {
