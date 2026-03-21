@@ -610,7 +610,7 @@
 
                 let locIdCounter = 0;
 
-                function renderLocations(locations, icon, title, selectable) {
+                function renderLocations(locations, icon, title, selectable, printLabel) {
                     if (!locations?.length) return '';
                     const items = locations.map(loc => {
                         const locId = `voting-loc-${locIdCounter++}`;
@@ -621,7 +621,8 @@
                         votingLocData[locId] = {
                             name: a.locationName || '',
                             addr: `${a.line1}, ${a.city}, ${a.state} ${a.zip}`,
-                            days
+                            days,
+                            printLabel: printLabel || 'Voting'
                         };
 
                         const nameHtml = a.locationName ? `<div class="font-semibold text-gray-800">${a.locationName}</div>` : '';
@@ -666,16 +667,16 @@
 
                 whereDiv.innerHTML = `
                     <h3 class="text-xl font-bold text-gray-800 mb-4">📍 Where to Vote</h3>
-                    ${renderLocations(data.pollingLocations, '🗳️', 'Election Day Polling', true)}
-                    ${renderLocations(data.earlyVoteSites, '📅', 'Early Voting', true)}
-                    ${renderLocations(data.dropOffLocations, '📬', 'Ballot Drop-Off', true)}
+                    ${renderLocations(data.pollingLocations, '🗳️', 'Election Day Polling', true, 'Voting Location')}
+                    ${renderLocations(data.earlyVoteSites, '📅', 'Early Voting', true, 'Voting Location')}
+                    ${renderLocations(data.dropOffLocations, '📬', 'Ballot Drop-Off', true, 'Drop Off Location')}
                 `;
 
                 window.selectVotingLoc = function(locId) {
                     const loc = votingLocData[locId];
                     if (!loc) return;
                     const lines = [
-                        `Voting: ${loc.name ? loc.name + ', ' : ''}${loc.addr}`,
+                        `${loc.printLabel}: ${loc.name ? loc.name + ', ' : ''}${loc.addr}`,
                         ...loc.days
                     ].join('\n');
                     document.getElementById('printPollingLoc').textContent = lines;
