@@ -76,6 +76,10 @@
             /* Compact spacing for candidate labels */
             label { margin: 0 !important; line-height: 1.1; }
             div { line-height: 1.1; }
+
+            /* Referendum Yes/No: inline and compact */
+            .referendum-options { display: flex !important; flex-direction: row !important; gap: 0.1in !important; margin: 0 !important; }
+            .referendum-option { flex: none !important; padding: 0 !important; border: none !important; }
         }
         .print-only { display: none; }
     </style>
@@ -755,7 +759,7 @@
                     html += `<p class="mb-3"><a href="${contest.referendumUrl}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline text-sm">Official information</a></p>`;
                 } else {
                     const searchQuery = encodeURIComponent((contest.referendumTitle || officeName) + ' ' + (districtName || ''));
-                    html += `<p class="mb-3"><a href="https://www.google.com/search?q=${searchQuery}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline text-sm">Search for more information</a></p>`;
+                    html += `<p class="mb-3 no-print"><a href="https://www.google.com/search?q=${searchQuery}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline text-sm">Search for more information</a></p>`;
                 }
                 if (contest.referendumProStatement) html += `<div class="mb-3"><span class="font-semibold text-green-700">For:</span> <span class="text-sm text-gray-700">${contest.referendumProStatement}</span></div>`;
                 if (contest.referendumConStatement) html += `<div class="mb-3"><span class="font-semibold text-red-700">Against:</span> <span class="text-sm text-gray-700">${contest.referendumConStatement}</span></div>`;
@@ -764,8 +768,8 @@
                     const yesSelected = userSelections[contestIndex] === 'yes';
                     const noSelected = userSelections[contestIndex] === 'no';
                     html += `
-                        <div class="space-y-4 mt-2">
-                            <div class="border rounded-lg p-4 hover:opacity-90 transition-colors ${yesSelected ? 'bg-green-50 border-green-400' : 'bg-gray-50 border-gray-200'} cursor-pointer print-candidate" onclick="handleReferendumSelection(${contestIndex}, 'yes')">
+                        <div class="space-y-4 mt-2 referendum-options">
+                            <div class="border rounded-lg p-4 hover:opacity-90 transition-colors ${yesSelected ? 'bg-green-50 border-green-400' : 'bg-gray-50 border-gray-200'} cursor-pointer print-candidate referendum-option" onclick="handleReferendumSelection(${contestIndex}, 'yes')">
                                 <div class="flex items-start gap-3">
                                     <label class="cursor-pointer mt-1">
                                         <input type="radio" name="referendum-${contestIndex}" value="yes" ${yesSelected ? 'checked' : ''} onchange="handleReferendumSelection(${contestIndex}, 'yes')" class="w-5 h-5 text-green-600" />
@@ -775,7 +779,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="border rounded-lg p-4 hover:opacity-90 transition-colors ${noSelected ? 'bg-red-50 border-red-400' : 'bg-gray-50 border-gray-200'} cursor-pointer print-candidate" onclick="handleReferendumSelection(${contestIndex}, 'no')">
+                            <div class="border rounded-lg p-4 hover:opacity-90 transition-colors ${noSelected ? 'bg-red-50 border-red-400' : 'bg-gray-50 border-gray-200'} cursor-pointer print-candidate referendum-option" onclick="handleReferendumSelection(${contestIndex}, 'no')">
                                 <div class="flex items-start gap-3">
                                     <label class="cursor-pointer mt-1">
                                         <input type="radio" name="referendum-${contestIndex}" value="no" ${noSelected ? 'checked' : ''} onchange="handleReferendumSelection(${contestIndex}, 'no')" class="w-5 h-5 text-red-600" />
