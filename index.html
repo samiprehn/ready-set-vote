@@ -768,7 +768,7 @@
                     const yesSelected = userSelections[contestIndex] === 'yes';
                     const noSelected = userSelections[contestIndex] === 'no';
                     html += `
-                        <div class="space-y-4 mt-2 referendum-options">
+                        <div class="flex gap-3 mt-2 referendum-options">
                             <div class="border rounded-lg p-4 hover:opacity-90 transition-colors ${yesSelected ? 'bg-green-50 border-green-400' : 'bg-gray-50 border-gray-200'} cursor-pointer print-candidate referendum-option" onclick="handleReferendumSelection(${contestIndex}, 'yes')">
                                 <div class="flex items-start gap-3">
                                     <label class="cursor-pointer mt-1">
