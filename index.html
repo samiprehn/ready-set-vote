@@ -751,9 +751,35 @@
 
             if (contest.referendumTitle || contest.referendumSubtitle) {
                 if (contest.referendumSubtitle) html += `<p class="text-sm text-gray-600 mb-3">${contest.referendumSubtitle}</p>`;
-                if (contest.referendumUrl) html += `<p class="mb-3"><a href="${contest.referendumUrl}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline text-sm">Official information</a></p>`;
+                if (contest.referendumUrl) {
+                    html += `<p class="mb-3"><a href="${contest.referendumUrl}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline text-sm">Official information</a></p>`;
+                } else {
+                    const searchQuery = encodeURIComponent((contest.referendumTitle || officeName) + ' ' + (districtName || ''));
+                    html += `<p class="mb-3"><a href="https://www.google.com/search?q=${searchQuery}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline text-sm">Search for more information</a></p>`;
+                }
                 if (contest.referendumProStatement) html += `<div class="mb-3"><span class="font-semibold text-green-700">For:</span> <span class="text-sm text-gray-700">${contest.referendumProStatement}</span></div>`;
                 if (contest.referendumConStatement) html += `<div class="mb-3"><span class="font-semibold text-red-700">Against:</span> <span class="text-sm text-gray-700">${contest.referendumConStatement}</span></div>`;
+
+                if (!contest.candidates || contest.candidates.length === 0) {
+                    const yesSelected = userSelections[contestIndex] === 'yes';
+                    const noSelected = userSelections[contestIndex] === 'no';
+                    html += `
+                        <div class="flex gap-3 mt-2">
+                            <div class="border rounded-lg p-4 flex-1 hover:opacity-90 transition-colors ${yesSelected ? 'bg-green-50 border-green-400' : 'bg-gray-50 border-gray-200'} cursor-pointer" onclick="handleReferendumSelection(${contestIndex}, 'yes')">
+                                <label class="cursor-pointer flex items-center gap-2">
+                                    <input type="radio" name="referendum-${contestIndex}" value="yes" ${yesSelected ? 'checked' : ''} onchange="handleReferendumSelection(${contestIndex}, 'yes')" class="w-4 h-4 text-green-600" />
+                                    <span class="font-semibold text-gray-800">Yes</span>
+                                </label>
+                            </div>
+                            <div class="border rounded-lg p-4 flex-1 hover:opacity-90 transition-colors ${noSelected ? 'bg-red-50 border-red-400' : 'bg-gray-50 border-gray-200'} cursor-pointer" onclick="handleReferendumSelection(${contestIndex}, 'no')">
+                                <label class="cursor-pointer flex items-center gap-2">
+                                    <input type="radio" name="referendum-${contestIndex}" value="no" ${noSelected ? 'checked' : ''} onchange="handleReferendumSelection(${contestIndex}, 'no')" class="w-4 h-4 text-red-600" />
+                                    <span class="font-semibold text-gray-800">No</span>
+                                </label>
+                            </div>
+                        </div>
+                    `;
+                }
             }
 
             if (contest.candidates) {
@@ -877,6 +903,21 @@
 
             card.innerHTML = html;
             return card;
+        }
+
+        function handleReferendumSelection(contestIndex, value) {
+            if (userSelections[contestIndex] === value) {
+                delete userSelections[contestIndex];
+            } else {
+                userSelections[contestIndex] = value;
+            }
+            // Re-render just this card
+            const cards = document.querySelectorAll('.print-race');
+            const card = cards[contestIndex];
+            if (card) {
+                const newCard = createContestCard(ballotData.contests[contestIndex], contestIndex);
+                card.replaceWith(newCard);
+            }
         }
 
         function handleSelection(contestIndex, candidateIndex) {
