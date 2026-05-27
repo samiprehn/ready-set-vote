@@ -678,6 +678,9 @@
             updateModeToggle();
 
             // Display election info
+            const electionInfoDiv = document.getElementById('electionInfo');
+            electionInfoDiv.innerHTML = '';
+            electionInfoDiv.classList.toggle('hidden', !data.election);
             if (data.election) {
                 const [ey, em, ed] = data.election.electionDay.split('-').map(Number);
                 const electionDate = new Date(ey, em - 1, ed).toLocaleDateString('en-US', {
