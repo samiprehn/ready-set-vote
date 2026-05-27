@@ -772,21 +772,21 @@
                 }
 
                 whereDiv.innerHTML = `
-                    <details>
-                        <summary class="text-xl font-bold text-gray-800 cursor-pointer list-none flex justify-between items-center">
-                            <span>📍 Where to Vote</span>
-                            <span class="text-sm text-gray-500 font-normal toggle-indicator">Show ▾</span>
-                        </summary>
-                        <div class="mt-4">
-                            ${renderLocations(data.pollingLocations, '🗳️', 'Election Day Polling', true, 'Voting Location')}
-                            ${renderLocations(data.earlyVoteSites, '📅', 'Early Voting', true, 'Voting Location')}
-                            ${renderLocations(data.dropOffLocations, '📬', 'Ballot Drop-Off', true, 'Drop Off Location')}
-                        </div>
-                    </details>
+                    <button type="button" id="whereToVoteToggle" class="w-full flex justify-between items-center text-left">
+                        <h3 class="text-xl font-bold text-gray-800">📍 Where to Vote</h3>
+                        <span class="text-sm text-gray-500 font-normal" id="whereToVoteIndicator">Show ▾</span>
+                    </button>
+                    <div id="whereToVoteContent" class="mt-4 hidden">
+                        ${renderLocations(data.pollingLocations, '🗳️', 'Election Day Polling', true, 'Voting Location')}
+                        ${renderLocations(data.earlyVoteSites, '📅', 'Early Voting', true, 'Voting Location')}
+                        ${renderLocations(data.dropOffLocations, '📬', 'Ballot Drop-Off', true, 'Drop Off Location')}
+                    </div>
                 `;
-                const details = whereDiv.querySelector('details');
-                details.addEventListener('toggle', () => {
-                    details.querySelector('.toggle-indicator').textContent = details.open ? 'Hide ▴' : 'Show ▾';
+                document.getElementById('whereToVoteToggle').addEventListener('click', () => {
+                    const content = document.getElementById('whereToVoteContent');
+                    const indicator = document.getElementById('whereToVoteIndicator');
+                    const isHidden = content.classList.toggle('hidden');
+                    indicator.textContent = isHidden ? 'Show ▾' : 'Hide ▴';
                 });
 
                 window.selectVotingLoc = function(locId) {
