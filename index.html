@@ -1318,7 +1318,7 @@
 
         function updateModeToggle() {
             const toggle = document.getElementById('modeToggle');
-            const hasAddress = !!addressBallotData;
+            const hasAddress = !!addressBallotData || !!localStorage.getItem(ADDRESS_STORAGE_KEY);
             const hasManual = !!manualBallotData;
 
             if (hasAddress && hasManual) {
@@ -1338,7 +1338,12 @@
         function switchMode(mode) {
             if (mode === currentMode) return;
             if (mode === 'address') {
-                if (!addressBallotData) return;
+                if (!addressBallotData) {
+                    // No cached results — run the lookup using the saved address
+                    if (!localStorage.getItem(ADDRESS_STORAGE_KEY)) return;
+                    searchBallot();
+                    return;
+                }
                 ballotData = addressBallotData;
             } else {
                 if (!manualBallotData) {
