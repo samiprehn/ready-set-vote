@@ -768,9 +768,14 @@
                             ${loc.notes ? `<div class="text-gray-400 text-xs mt-1">${loc.notes}</div>` : ''}
                         </div>`;
                     }).join('');
+                    const sectionId = `voting-section-${title.replace(/\W+/g, '-')}`;
                     return `<div class="mb-4 last:mb-0">
-                        <h4 class="font-bold text-gray-700 mb-2">${icon} ${title}</h4>
-                        ${items}
+                        <button type="button" class="w-full flex justify-between items-center text-left mb-2"
+                            onclick="const el=document.getElementById('${sectionId}');const ind=this.querySelector('.section-indicator');const hidden=el.classList.toggle('hidden');ind.textContent=hidden?'Show ▾':'Hide ▴';">
+                            <h4 class="font-bold text-gray-700">${icon} ${title}</h4>
+                            <span class="text-xs text-gray-500 font-normal section-indicator">Show ▾</span>
+                        </button>
+                        <div id="${sectionId}" class="hidden">${items}</div>
                     </div>`;
                 }
 
