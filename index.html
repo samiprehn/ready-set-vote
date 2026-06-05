@@ -227,6 +227,7 @@
         const ADDRESS_STORAGE_KEY = 'ready_set_vote_address';
         const MANUAL_BALLOT_STORAGE_KEY = 'ready_set_vote_manual_ballot';
 
+        const OFFICE_OTHER = 'Other...';
         const OFFICE_OPTIONS = [
             'President',
             'U.S. Senate',
@@ -238,8 +239,34 @@
             'City Council',
             'School Board',
             'Ballot Measure',
-            'Other...'
+            OFFICE_OTHER
         ];
+
+        function lsGet(key) {
+            try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; } catch { return null; }
+        }
+        function lsSet(key, val) {
+            try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
+        }
+        function lsRemove(key) {
+            try { localStorage.removeItem(key); } catch {}
+        }
+
+        // Collapsible widget: heading button + body div, collapsed by default.
+        function collapsibleHtml(headingHtml, bodyHtml, { wrapperClass = '', headerClass = '', startOpen = false } = {}) {
+            const id = `collapsible-${++collapsibleHtml.n}`;
+            const hidden = startOpen ? '' : 'hidden';
+            const indicator = startOpen ? 'Hide ▴' : 'Show ▾';
+            return `<div class="${wrapperClass}">
+                <button type="button" class="w-full flex justify-between items-center text-left ${headerClass}"
+                    onclick="(function(b){const el=document.getElementById('${id}');const i=b.querySelector('.collapsible-indicator');const h=el.classList.toggle('hidden');i.textContent=h?'Show ▾':'Hide ▴';})(this)">
+                    ${headingHtml}
+                    <span class="text-xs text-gray-500 font-normal collapsible-indicator">${indicator}</span>
+                </button>
+                <div id="${id}" class="${hidden}">${bodyHtml}</div>
+            </div>`;
+        }
+        collapsibleHtml.n = 0;
 
         let ballotData = null;
         let addressBallotData = null;
@@ -375,7 +402,7 @@
                     const districtMatch = contest.district?.name?.match(/\d+/);
                     const district = districtMatch ? districtMatch[0] : '';
 
-                    const fecData = await fetchFECData(candidate.name, contest._officeForEnrichment || contest.office || '', state, district);
+                    const fecData = await fetchFECData(candidate.name, contest.officeKey || contest.office || '', state, district);
 
                     if (fecData && fecData.topContributors && fecData.topContributors.length > 0) {
                         const formatMoney = (amount) => {
@@ -600,22 +627,16 @@
             const state = document.getElementById('state').value.trim();
             const zip = document.getElementById('zip').value.trim();
             if (!street || !city || !state || !zip) return null;
-            try {
-                localStorage.setItem(ADDRESS_STORAGE_KEY, JSON.stringify({ street, city, state, zip }));
-            } catch (e) { /* localStorage unavailable */ }
+            lsSet(ADDRESS_STORAGE_KEY, { street, city, state, zip });
             return `${street}, ${city}, ${state} ${zip}`;
         }
 
-        // Prefill from localStorage on load
         (() => {
-            try {
-                const saved = localStorage.getItem(ADDRESS_STORAGE_KEY);
-                if (!saved) return;
-                const p = JSON.parse(saved);
-                ['street','city','state','zip'].forEach(id => {
-                    if (p[id]) document.getElementById(id).value = p[id];
-                });
-            } catch (e) { /* ignore */ }
+            const saved = lsGet(ADDRESS_STORAGE_KEY);
+            if (!saved) return;
+            ['street','city','state','zip'].forEach(id => {
+                if (saved[id]) document.getElementById(id).value = saved[id];
+            });
         })();
 
         async function searchBallot() {
@@ -768,34 +789,21 @@
                             ${loc.notes ? `<div class="text-gray-400 text-xs mt-1">${loc.notes}</div>` : ''}
                         </div>`;
                     }).join('');
-                    const sectionId = `voting-section-${title.replace(/\W+/g, '-')}`;
-                    return `<div class="mb-4 last:mb-0">
-                        <button type="button" class="w-full flex justify-between items-center text-left mb-2"
-                            onclick="const el=document.getElementById('${sectionId}');const ind=this.querySelector('.section-indicator');const hidden=el.classList.toggle('hidden');ind.textContent=hidden?'Show ▾':'Hide ▴';">
-                            <h4 class="font-bold text-gray-700">${icon} ${title}</h4>
-                            <span class="text-xs text-gray-500 font-normal section-indicator">Show ▾</span>
-                        </button>
-                        <div id="${sectionId}" class="hidden">${items}</div>
-                    </div>`;
+                    return collapsibleHtml(
+                        `<h4 class="font-bold text-gray-700">${icon} ${title}</h4>`,
+                        items,
+                        { wrapperClass: 'mb-4 last:mb-0', headerClass: 'mb-2' }
+                    );
                 }
 
-                whereDiv.innerHTML = `
-                    <button type="button" id="whereToVoteToggle" class="w-full flex justify-between items-center text-left">
-                        <h3 class="text-xl font-bold text-gray-800">📍 Where to Vote</h3>
-                        <span class="text-sm text-gray-500 font-normal" id="whereToVoteIndicator">Show ▾</span>
-                    </button>
-                    <div id="whereToVoteContent" class="mt-4 hidden">
+                whereDiv.innerHTML = collapsibleHtml(
+                    `<h3 class="text-xl font-bold text-gray-800">📍 Where to Vote</h3>`,
+                    `<div class="mt-4">
                         ${renderLocations(data.pollingLocations, '🗳️', 'Election Day Polling', true, 'Voting Location')}
                         ${renderLocations(data.earlyVoteSites, '📅', 'Early Voting', true, 'Voting Location')}
                         ${renderLocations(data.dropOffLocations, '📬', 'Ballot Drop-Off', true, 'Drop Off Location')}
-                    </div>
-                `;
-                document.getElementById('whereToVoteToggle').addEventListener('click', () => {
-                    const content = document.getElementById('whereToVoteContent');
-                    const indicator = document.getElementById('whereToVoteIndicator');
-                    const isHidden = content.classList.toggle('hidden');
-                    indicator.textContent = isHidden ? 'Show ▾' : 'Hide ▴';
-                });
+                    </div>`
+                );
 
                 window.selectVotingLoc = function(locId) {
                     const loc = votingLocData[locId];
@@ -830,7 +838,7 @@
                     contestsDiv.appendChild(contestCard);
 
                     // Show Donations button for federal races
-                    const officeName = (contest._officeForEnrichment || contest.office || '').toLowerCase();
+                    const officeName = (contest.officeKey || contest.office || '').toLowerCase();
                     const isFederal = officeName.includes('president') ||
                                     officeName.includes('senate') ||
                                     officeName.includes('house') ||
@@ -1126,27 +1134,17 @@
             userSelections = {};
         }
 
-        // ---------- Manual Entry Mode ----------
-
         function showManualMode() {
             document.getElementById('addressSection').classList.add('hidden');
             document.getElementById('results').classList.add('hidden');
             document.getElementById('manualSection').classList.remove('hidden');
             hideError();
 
-            // Show state row only if we don't already have a state from address
+            const stored = lsGet(MANUAL_BALLOT_STORAGE_KEY);
             const addrState = document.getElementById('state').value.trim();
-            const manualState = document.getElementById('manualState');
-            const stateRow = document.getElementById('manualStateRow');
-            const stored = loadManualBallot();
-            const haveState = addrState || stored?.state;
-            if (haveState) {
-                stateRow.classList.add('hidden');
-                if (stored?.state) manualState.value = stored.state;
-                else manualState.value = addrState;
-            } else {
-                stateRow.classList.remove('hidden');
-            }
+            const state = stored?.state || addrState || '';
+            document.getElementById('manualState').value = state;
+            document.getElementById('manualStateRow').classList.toggle('hidden', !!state);
 
             renderManualForm(stored);
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1174,7 +1172,7 @@
                 `<option value="${opt}" ${contest.office === opt ? 'selected' : ''}>${opt}</option>`
             ).join('');
 
-            const otherHidden = contest.office === 'Other...' ? '' : 'hidden';
+            const otherHidden = contest.office === OFFICE_OTHER ? '' : 'hidden';
 
             wrap.innerHTML = `
                 <div class="flex justify-between items-start gap-3 mb-3">
@@ -1225,7 +1223,7 @@
 
         function onOfficeChange(selectEl) {
             const otherInput = selectEl.closest('.manual-contest').querySelector('.manual-office-other');
-            if (selectEl.value === 'Other...') {
+            if (selectEl.value === OFFICE_OTHER) {
                 otherInput.classList.remove('hidden');
             } else {
                 otherInput.classList.add('hidden');
@@ -1265,34 +1263,20 @@
             return { state, contests };
         }
 
-        function saveManualBallot(data) {
-            try {
-                localStorage.setItem(MANUAL_BALLOT_STORAGE_KEY, JSON.stringify(data));
-            } catch (e) { /* ignore */ }
-        }
-
-        function loadManualBallot() {
-            try {
-                const raw = localStorage.getItem(MANUAL_BALLOT_STORAGE_KEY);
-                return raw ? JSON.parse(raw) : null;
-            } catch (e) { return null; }
-        }
-
         function clearManualBallot() {
-            try { localStorage.removeItem(MANUAL_BALLOT_STORAGE_KEY); } catch (e) {}
+            lsRemove(MANUAL_BALLOT_STORAGE_KEY);
             manualBallotData = null;
             document.getElementById('manualState').value = '';
             renderManualForm(null);
         }
 
-        // Convert the manual form into the same shape the renderer expects from Civic.
         function buildManualBallotFromForm(form) {
             const contests = form.contests.map(c => {
-                const resolvedOffice = c.office === 'Other...' ? (c.officeOther || 'Contest') : (c.office || c.contestName || 'Contest');
+                const resolvedOffice = c.office === OFFICE_OTHER ? (c.officeOther || 'Contest') : (c.office || c.contestName || 'Contest');
                 const districtName = c.contestName && c.contestName !== resolvedOffice ? c.contestName : '';
                 return {
                     office: c.contestName || resolvedOffice,
-                    _officeForEnrichment: resolvedOffice,
+                    officeKey: resolvedOffice,
                     district: districtName ? { name: districtName } : undefined,
                     numberElected: 1,
                     candidates: c.candidates.map(cand => ({ name: cand.name }))
@@ -1311,15 +1295,13 @@
                 alert('Add at least one contest with a candidate first.');
                 return;
             }
-            saveManualBallot(form);
+            lsSet(MANUAL_BALLOT_STORAGE_KEY, form);
             manualBallotData = buildManualBallotFromForm(form);
             ballotData = manualBallotData;
             currentMode = 'manual';
             userSelections = {};
             displayResults(ballotData);
         }
-
-        // ---------- Mode Toggle ----------
 
         function updateModeToggle() {
             const toggle = document.getElementById('modeToggle');
@@ -1352,7 +1334,7 @@
                 ballotData = addressBallotData;
             } else {
                 if (!manualBallotData) {
-                    const stored = loadManualBallot();
+                    const stored = lsGet(MANUAL_BALLOT_STORAGE_KEY);
                     if (!stored || !stored.contests?.length) return;
                     manualBallotData = buildManualBallotFromForm(stored);
                 }
@@ -1363,9 +1345,8 @@
             displayResults(ballotData, false);
         }
 
-        // Restore manual ballot from storage on page load so the toggle can offer it.
         (() => {
-            const stored = loadManualBallot();
+            const stored = lsGet(MANUAL_BALLOT_STORAGE_KEY);
             if (stored?.contests?.length) {
                 manualBallotData = buildManualBallotFromForm(stored);
             }
