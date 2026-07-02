@@ -413,7 +413,7 @@
 
                         let fecHtml = '<div class="mt-1"><span class="font-semibold">Top Contributors</span> <span class="text-gray-500 font-normal">(all years):</span><ul class="list-disc list-inside ml-2">';
                         fecData.topContributors.forEach(contrib => {
-                            fecHtml += `<li>${contrib.name}${contrib.employer ? ` (${contrib.employer})` : ''}: ${formatMoney(contrib.amount)}</li>`;
+                            fecHtml += `<li>${esc(contrib.name)}${contrib.employer ? ` (${esc(contrib.employer)})` : ''}: ${formatMoney(contrib.amount)}</li>`;
                         });
                         fecHtml += '</ul></div>';
                         fecDiv.innerHTML = fecHtml;
@@ -462,8 +462,8 @@
                         if (gtData.committees.length > 0) {
                             html += '<div class="mb-3"><span class="font-semibold">Committees:</span><ul class="list-disc list-inside ml-2">';
                             gtData.committees.forEach(cm => {
-                                const role = cm.role_label && cm.role_label !== 'Member' ? ` (${cm.role_label})` : '';
-                                html += `<li>${cm.committee.name}${role}</li>`;
+                                const role = cm.role_label && cm.role_label !== 'Member' ? ` (${esc(cm.role_label)})` : '';
+                                html += `<li>${esc(cm.committee.name)}${role}</li>`;
                             });
                             html += '</ul></div>';
                         }
@@ -493,7 +493,7 @@
                                 billsToShow.forEach(bill => {
                                     const title = bill.title_without_number || bill.title || 'Untitled';
                                     const year = bill.introduced_date?.substring(0, 4);
-                                    html += `<li>${bill.display_number}: ${title.substring(0, 100)}${title.length > 100 ? '...' : ''} <span class="text-gray-400">(${year})</span></li>`;
+                                    html += `<li>${esc(bill.display_number)}: ${esc(title.substring(0, 100))}${title.length > 100 ? '...' : ''} <span class="text-gray-400">(${esc(year)})</span></li>`;
                                 });
                                 billsDisplayed += billsToShow.length;
                                 html += '</ul>';
@@ -515,7 +515,7 @@
                                 const tally = yeas !== '' ? ` <span class="text-gray-500">(${passed ? 'Passed' : 'Failed'} ${yeas}-${nays})</span>` : '';
                                 const winLabel = winner != null ? (winner ? ' ✓' : ' ✗') : '';
                                 const question = voteQuestion.substring(0, 80) + (voteQuestion.length > 80 ? '...' : '');
-                                html += `<li><strong>${voteOption}${winLabel}</strong> on ${question}${tally}</li>`;
+                                html += `<li><strong>${esc(voteOption)}${winLabel}</strong> on ${esc(question)}${tally}</li>`;
                             });
                             html += '</ul></div>';
                         }
@@ -574,13 +574,25 @@
                            (fecName.includes(nameParts[0].toLowerCase()) || searchName.includes(c.name.toLowerCase()));
                 });
 
-                if (!candidate) candidate = data.results[0]; // Fallback to first result
+                if (!candidate) {
+                    // Fallback to first result, but only if its name plausibly
+                    // matches — otherwise we'd show a same-last-name stranger.
+                    const first = data.results[0];
+                    if ((first.name || '').toLowerCase().includes(lastName.toLowerCase())) {
+                        candidate = first;
+                    } else {
+                        return null;
+                    }
+                }
 
-                // Fetch top contributors (from all cycles)
-                const contributorsPath = `/schedules/schedule_a/?committee_id=${candidate.principal_committees?.[0]?.committee_id || ''}&sort=-contribution_receipt_amount&per_page=50`;
+                // Fetch top contributors (from all cycles). Skip entirely if the
+                // candidate has no principal committee — an empty committee_id
+                // would return contributions from the whole FEC database.
+                const committeeId = candidate.principal_committees?.[0]?.committee_id;
                 let topContributors = [];
 
-                try {
+                if (committeeId) try {
+                    const contributorsPath = `/schedules/schedule_a/?committee_id=${committeeId}&sort=-contribution_receipt_amount&per_page=50`;
                     const contribResponse = await fetch(`${WORKER_URL}?fec=${encodeURIComponent(contributorsPath)}`);
                     if (contribResponse.ok) {
                         const contribData = await contribResponse.json();
@@ -658,7 +670,13 @@
                 console.log('Response status:', response.status);
                 console.log('Response ok:', response.ok);
 
-                const data = await response.json();
+                let data;
+                try {
+                    data = await response.json();
+                } catch (e) {
+                    // Non-JSON response (e.g. a worker error page)
+                    throw new Error('The ballot lookup service is having trouble right now. Please try again in a few minutes.');
+                }
                 console.log('Full API Response:', data);
 
                 if (data.error) {
@@ -701,8 +719,8 @@
             // Display election info
             const electionInfoDiv = document.getElementById('electionInfo');
             electionInfoDiv.innerHTML = '';
-            electionInfoDiv.classList.toggle('hidden', !data.election);
-            if (data.election) {
+            electionInfoDiv.classList.toggle('hidden', !data.election?.electionDay);
+            if (data.election?.electionDay) {
                 const [ey, em, ed] = data.election.electionDay.split('-').map(Number);
                 const electionDate = new Date(ey, em - 1, ed).toLocaleDateString('en-US', {
                     weekday: 'long',
@@ -713,12 +731,12 @@
 
                 document.getElementById('electionInfo').innerHTML = `
                     <div class="flex justify-between items-center">
-                        <h2 class="text-xl font-bold text-gray-800">${data.election.name}</h2>
+                        <h2 class="text-xl font-bold text-gray-800">${esc(data.election.name)}</h2>
                         <p class="text-gray-600">📅 ${electionDate}</p>
                     </div>
                 `;
 
-                document.getElementById('printElectionInfo').innerHTML = `<div><strong>${data.election.name}</strong></div>`;
+                document.getElementById('printElectionInfo').innerHTML = `<div><strong>${esc(data.election.name)}</strong></div>`;
             }
 
             // Display where to vote
@@ -755,20 +773,20 @@
                             printLabel: printLabel || 'Voting'
                         };
 
-                        const nameHtml = a.locationName ? `<div class="font-semibold text-gray-800">${a.locationName}</div>` : '';
+                        const nameHtml = a.locationName ? `<div class="font-semibold text-gray-800">${esc(a.locationName)}</div>` : '';
 
                         let openHtml = '';
                         if (days.length > 1) {
-                            const firstDay = days[0].split(':')[0].trim();
-                            const lastDay = days[days.length - 1].split(':')[0].trim();
+                            const firstDay = esc(days[0].split(':')[0].trim());
+                            const lastDay = esc(days[days.length - 1].split(':')[0].trim());
                             const expandId = `${locId}-expand`;
-                            const daysHtml = days.map(d => `<div class="text-xs text-gray-500">${d}</div>`).join('');
+                            const daysHtml = days.map(d => `<div class="text-xs text-gray-500">${esc(d)}</div>`).join('');
                             openHtml = `<span class="text-sm">
                                 <button onclick="const el=document.getElementById('${expandId}');el.classList.toggle('hidden');this.textContent=el.classList.contains('hidden')?'Open: ${firstDay} – ${lastDay} ▸':'Open: ${firstDay} – ${lastDay} ▾'" class="text-blue-600 hover:underline whitespace-nowrap">Open: ${firstDay} – ${lastDay} ▸</button>
                                 <div id="${expandId}" class="hidden mt-1">${daysHtml}</div>
                             </span>`;
                         } else if (days.length === 1) {
-                            openHtml = `<span class="text-gray-500 text-sm whitespace-nowrap">Open: ${days[0]}</span>`;
+                            openHtml = `<span class="text-gray-500 text-sm whitespace-nowrap">Open: ${esc(days[0])}</span>`;
                         }
 
                         const radio = selectable ? `<label class="cursor-pointer mt-0.5">
@@ -782,11 +800,11 @@
                             <div class="flex justify-between items-start gap-2">
                                 <div class="flex items-start gap-2">
                                     ${radio}
-                                    <span class="text-gray-600">${a.line1}, ${a.city}, ${a.state} ${a.zip}</span>
+                                    <span class="text-gray-600">${esc(a.line1)}, ${esc(a.city)}, ${esc(a.state)} ${esc(a.zip)}</span>
                                 </div>
                                 ${openHtml}
                             </div>
-                            ${loc.notes ? `<div class="text-gray-400 text-xs mt-1">${loc.notes}</div>` : ''}
+                            ${loc.notes ? `<div class="text-gray-400 text-xs mt-1">${esc(loc.notes)}</div>` : ''}
                         </div>`;
                     }).join('');
                     return collapsibleHtml(
@@ -887,22 +905,22 @@
 
             let html = `
                 <h3 class="text-xl font-bold text-gray-800 mb-1 print-text-sm">
-                    ${officeName}
+                    ${esc(officeName)}
                     ${numberElected > 1 ? `<span class="text-base font-normal text-gray-600 ml-2 print-text-xs">(Vote for up to ${numberElected})</span>` : ''}
                 </h3>
-                ${showDistrict ? `<p class="text-sm text-gray-500 mb-4 print-text-xs">${districtName}</p>` : ''}
+                ${showDistrict ? `<p class="text-sm text-gray-500 mb-4 print-text-xs">${esc(districtName)}</p>` : ''}
             `;
 
             if (contest.referendumTitle || contest.referendumSubtitle) {
-                if (contest.referendumSubtitle) html += `<p class="text-sm text-gray-600 mb-3">${contest.referendumSubtitle}</p>`;
-                if (contest.referendumUrl) {
-                    html += `<p class="mb-3"><a href="${contest.referendumUrl}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline text-sm">Official information</a></p>`;
+                if (contest.referendumSubtitle) html += `<p class="text-sm text-gray-600 mb-3">${esc(contest.referendumSubtitle)}</p>`;
+                if (isSafeUrl(contest.referendumUrl)) {
+                    html += `<p class="mb-3"><a href="${esc(contest.referendumUrl)}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline text-sm">Official information</a></p>`;
                 } else {
                     const searchQuery = encodeURIComponent((contest.referendumTitle || officeName) + ' ' + (districtName || ''));
                     html += `<p class="mb-3 no-print"><a href="https://www.google.com/search?q=${searchQuery}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline text-sm">Search for more information</a></p>`;
                 }
-                if (contest.referendumProStatement) html += `<div class="mb-3"><span class="font-semibold text-green-700">For:</span> <span class="text-sm text-gray-700">${contest.referendumProStatement}</span></div>`;
-                if (contest.referendumConStatement) html += `<div class="mb-3"><span class="font-semibold text-red-700">Against:</span> <span class="text-sm text-gray-700">${contest.referendumConStatement}</span></div>`;
+                if (contest.referendumProStatement) html += `<div class="mb-3"><span class="font-semibold text-green-700">For:</span> <span class="text-sm text-gray-700">${esc(contest.referendumProStatement)}</span></div>`;
+                if (contest.referendumConStatement) html += `<div class="mb-3"><span class="font-semibold text-red-700">Against:</span> <span class="text-sm text-gray-700">${esc(contest.referendumConStatement)}</span></div>`;
 
                 if (!contest.candidates || contest.candidates.length === 0) {
                     const yesSelected = userSelections[contestIndex] === 'yes';
@@ -964,8 +982,8 @@
                                 <div class="flex-1">
                                     <div class="mb-2 flex items-center gap-2 flex-wrap">
                                         <div>
-                                            <span class="font-bold text-gray-900 text-lg print-text-sm">${candidate.name}</span>
-                                            ${candidate.party ? `<span class="text-sm text-gray-500 ml-2 print-text-xs">(${candidate.party})</span>` : ''}
+                                            <span class="font-bold text-gray-900 text-lg print-text-sm">${esc(candidate.name)}</span>
+                                            ${candidate.party ? `<span class="text-sm text-gray-500 ml-2 print-text-xs">(${esc(candidate.party)})</span>` : ''}
                                         </div>
                                         <div class="no-print flex gap-1">
                                             <button onclick="toggleCandidateView(${contestIndex}, ${candidateIndex}, 'links')"
@@ -988,8 +1006,8 @@
 
                                     <div class="mt-3 space-y-2 no-print" id="links-${contestIndex}-${candidateIndex}">
                                         <div class="grid grid-cols-2 gap-2">
-                                            ${candidate.candidateUrl ? `
-                                                <a href="${candidate.candidateUrl}" target="_blank" rel="noopener noreferrer"
+                                            ${isSafeUrl(candidate.candidateUrl) ? `
+                                                <a href="${esc(candidate.candidateUrl)}" target="_blank" rel="noopener noreferrer"
                                                    class="text-xs bg-gray-200 text-gray-800 px-3 py-2 rounded hover:bg-gray-300 text-center font-medium">
                                                     🌐 Official Site
                                                 </a>
@@ -1217,8 +1235,15 @@
             return row;
         }
 
-        function escapeAttr(s) {
+        // General HTML escape — safe for text content and double-quoted attributes.
+        function esc(s) {
             return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+        function escapeAttr(s) {
+            return esc(s);
+        }
+        function isSafeUrl(u) {
+            return typeof u === 'string' && /^https?:\/\//i.test(u);
         }
 
         function onOfficeChange(selectEl) {

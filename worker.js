@@ -13,9 +13,10 @@
 
 const ALLOWED_ORIGINS = [
   'https://samiprehn.github.io',
-  'http://localhost',
-  'http://127.0.0.1',
 ];
+
+// localhost / 127.0.0.1 on any port (dev servers)
+const LOCALHOST_RE = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 
 // Only these FEC v1 paths may be proxied (query string after the path is free).
 const FEC_ALLOWED_PATHS = [
@@ -25,7 +26,7 @@ const FEC_ALLOWED_PATHS = [
 
 function corsHeaders(request) {
   const origin = request.headers.get('Origin') || '';
-  const allowed = ALLOWED_ORIGINS.some((o) => origin.startsWith(o));
+  const allowed = ALLOWED_ORIGINS.includes(origin) || LOCALHOST_RE.test(origin);
   return {
     'Access-Control-Allow-Origin': allowed ? origin : ALLOWED_ORIGINS[0],
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
