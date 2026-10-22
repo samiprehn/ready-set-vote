@@ -274,87 +274,62 @@
         let currentMode = 'address';
         let userSelections = {};
         let fecDataCache = {};
-        let govTrackCache = {};
-        let govTrackPersonCache = {};
 
-        async function lookupGovTrackPerson(candidateName, state) {
-            const cacheKey = `${candidateName}-${state || ''}`;
-            if (cacheKey in govTrackPersonCache) return govTrackPersonCache[cacheKey];
-
-            const nameParts = candidateName.trim().split(' ');
-            const lastName = nameParts[nameParts.length - 1];
-            const firstName = nameParts[0];
-            try {
-                // Try full name first (helps disambiguate), fall back to first+last if no results
-                let data = null;
-                if (nameParts.length > 2) {
-                    const fullName = candidateName.trim().replace(/\./g, '').replace(/\s+/g, ' ');
-                    const r = await fetch(`https://www.govtrack.us/api/v2/person?q=${encodeURIComponent(fullName)}&limit=10`);
-                    if (r.ok) data = await r.json();
-                }
-                if (!data?.objects?.length) {
-                    const r = await fetch(`https://www.govtrack.us/api/v2/person?q=${encodeURIComponent(firstName + ' ' + lastName)}&limit=10`);
-                    if (!r.ok) { govTrackPersonCache[cacheKey] = null; return null; }
-                    data = await r.json();
-                }
-                const match = (data.objects || []).find(p => {
-                    if (!p.name?.toLowerCase().includes(lastName.toLowerCase())) return false;
-                    if (!p.name?.toLowerCase().includes(firstName.toLowerCase())) return false;
-                    if (p.birthday) {
-                        const age = (new Date() - new Date(p.birthday)) / (365.25 * 24 * 60 * 60 * 1000);
-                        if (age > 100) return false;
+        // Congress data from the unitedstates/congress-legislators project (static JSON, CORS-enabled).
+        // GovTrack's API started serving Cloudflare challenges (Oct 2026), which browsers can't pass.
+        const CL = 'https://unitedstates.github.io/congress-legislators';
+        let congressData = null;
+        function loadCongressData() {
+            if (!congressData) {
+                const get = (f) => fetch(`${CL}/${f}`).then(r => { if (!r.ok) throw new Error('Could not load Congress data'); return r.json(); });
+                congressData = Promise.all([
+                    get('legislators-current.json'),
+                    get('committee-membership-current.json'),
+                    get('committees-current.json')
+                ]).then(([legislators, membership, committees]) => {
+                    const committeeNames = Object.fromEntries(committees.map(c => [c.thomas_id, c.name]));
+                    // Full committees only (subcommittee ids have a numeric suffix, e.g. SSAF13)
+                    const committeesByMember = {};
+                    for (const [id, members] of Object.entries(membership)) {
+                        if (!committeeNames[id]) continue;
+                        for (const m of members) {
+                            (committeesByMember[m.bioguide] ||= []).push({ name: committeeNames[id], title: m.title });
+                        }
                     }
-                    if (state) {
-                        const stateMatch = p.name?.match(/\[.-([A-Z]{2})\d*\]/);
-                        if (stateMatch && stateMatch[1] !== state.toUpperCase()) return false;
-                    }
-                    return true;
+                    return { legislators, committeesByMember };
                 });
-                const personId = match?.link?.split('/').filter(Boolean).pop() || null;
-                govTrackPersonCache[cacheKey] = personId;
-                return personId;
+                congressData.catch(() => { congressData = null; });
+            }
+            return congressData;
+        }
+
+        // Find a current member of Congress by ballot name (+ state if known)
+        async function lookupLegislator(candidateName, state) {
+            const norm = (n) => (n || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[.,]/g, '').toLowerCase();
+            const parts = norm(candidateName).split(/\s+/).filter(p => p && !/^(jr|sr|ii|iii|iv)$/.test(p));
+            if (parts.length === 0) return null;
+            const firstName = parts[0];
+            const lastName = parts[parts.length - 1];
+            try {
+                const { legislators } = await loadCongressData();
+                return legislators.find(l => {
+                    const term = l.terms[l.terms.length - 1];
+                    if (state && term.state !== state.toUpperCase()) return false;
+                    const last = norm(l.name.last).split(/[\s-]+/);
+                    if (!last.includes(lastName)) return false;
+                    return [l.name.first, l.name.nickname, l.name.middle].some(n => n && norm(n).split(/\s+/)[0] === firstName);
+                }) || null;
             } catch {
-                govTrackPersonCache[cacheKey] = null;
                 return null;
             }
         }
 
-        // Fetch GovTrack data for a legislator
-        async function fetchGovTrackData(candidateName, state) {
-            if (govTrackCache[candidateName]) return govTrackCache[candidateName];
-
-            try {
-                const personId = await lookupGovTrackPerson(candidateName, state);
-                if (!personId) return null;
-
-                // Fetch roles first to calculate years in Congress for bill limit
-                const rolesData = await fetch(`https://www.govtrack.us/api/v2/role?person=${personId}&limit=50&order_by=startdate`).then(r => r.ok ? r.json() : null);
-                const allRoles = rolesData?.objects || [];
-                const firstStart = allRoles.length > 0 ? allRoles[0].startdate : null;
-
-                // Fetch remaining data in parallel
-                const [personData, votesData, billsData, committeesData] = await Promise.all([
-                    fetch(`https://www.govtrack.us/api/v2/person/${personId}`).then(r => r.ok ? r.json() : null),
-                    fetch(`https://www.govtrack.us/api/v2/vote_voter?person=${personId}&limit=10&order_by=-created`).then(r => r.ok ? r.json() : null),
-                    fetch(`https://www.govtrack.us/api/v2/bill?sponsor=${personId}&limit=1000&order_by=-introduced_date`).then(r => r.ok ? r.json() : null),
-                    fetch(`https://www.govtrack.us/api/v2/committee_member?person=${personId}`).then(r => r.ok ? r.json() : null)
-                ]);
-
-                const result = {
-                    bio: personData || {},
-                    currentRole: allRoles[allRoles.length - 1] || {},
-                    firstStart,
-                    recentVotes: votesData?.objects || [],
-                    billsSponsored: billsData?.objects || [],
-                    committees: committeesData?.objects || []
-                };
-
-                govTrackCache[candidateName] = result;
-                return result;
-            } catch (error) {
-                console.error('GovTrack API error:', error);
-                return null;
-            }
+        // Legislative record for a current member of Congress
+        async function fetchLegislatorRecord(candidateName, state) {
+            const leg = await lookupLegislator(candidateName, state);
+            if (!leg) return null;
+            const { committeesByMember } = await loadCongressData();
+            return { leg, committees: committeesByMember[leg.id.bioguide] || [] };
         }
 
         // Toggle between links, donations, and record view for a candidate
@@ -428,7 +403,7 @@
                 recordBtn.classList.remove('bg-gray-200', 'text-gray-700');
                 recordBtn.classList.add('bg-gray-600', 'text-white');
 
-                // Fetch GovTrack data on first click
+                // Load legislative record on first click
                 const gtDiv = document.getElementById(`govtrack-${contestIndex}-${candidateIndex}`);
                 if (gtDiv && !gtDiv.dataset.loaded) {
                     gtDiv.innerHTML = '<div class="text-gray-500">Loading legislative record...</div>';
@@ -436,91 +411,41 @@
                     const contest = ballotData.contests[contestIndex];
                     const candidate = contest.candidates[candidateIndex];
 
-                    const gtData = await fetchGovTrackData(candidate.name, ballotData.normalizedInput?.state || '');
+                    const rec = await fetchLegislatorRecord(candidate.name, ballotData.normalizedInput?.state || '');
 
-                    if (gtData) {
+                    if (rec) {
+                        const { leg, committees } = rec;
                         let html = '';
 
                         // Bio
                         html += '<div class="mb-3">';
-                        const yearsInCongress = gtData.firstStart ? Math.floor((new Date() - new Date(gtData.firstStart)) / (365.25 * 24 * 60 * 60 * 1000)) : null;
-                        const age = gtData.bio.birthday ? Math.floor((new Date() - new Date(gtData.bio.birthday)) / (365.25 * 24 * 60 * 60 * 1000)) : null;
-                        if (age !== null && yearsInCongress !== null) {
+                        const YEAR = 365.25 * 24 * 60 * 60 * 1000;
+                        const yearsInCongress = Math.floor((new Date() - new Date(leg.terms[0].start)) / YEAR);
+                        const age = leg.bio?.birthday ? Math.floor((new Date() - new Date(leg.bio.birthday)) / YEAR) : null;
+                        if (age !== null) {
                             html += `<span class="font-semibold">Age:</span> ${age} &nbsp;|&nbsp; <span class="font-semibold">Years in Congress:</span> ${yearsInCongress}<br>`;
-                        } else if (age !== null) {
-                            html += `<span class="font-semibold">Age:</span> ${age}<br>`;
-                        } else if (yearsInCongress !== null) {
+                        } else {
                             html += `<span class="font-semibold">Years in Congress:</span> ${yearsInCongress}<br>`;
                         }
                         const links = [];
-                        if (gtData.bio.link) links.push(`<a href="${gtData.bio.link}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">GovTrack</a>`);
-                        if (gtData.bio.osid) links.push(`<a href="https://www.opensecrets.org/members-of-congress/summary?cid=${gtData.bio.osid}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">OpenSecrets</a>`);
+                        if (leg.id.govtrack) links.push(`<a href="https://www.govtrack.us/congress/members/${leg.id.govtrack}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">GovTrack</a>`);
+                        if (leg.id.opensecrets) links.push(`<a href="https://www.opensecrets.org/members-of-congress/summary?cid=${esc(leg.id.opensecrets)}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">OpenSecrets</a>`);
                         if (links.length > 0) html += `<div class="mt-1">${links.join(' &nbsp;|&nbsp; ')}</div>`;
                         html += '</div>';
 
                         // Committees
-                        if (gtData.committees.length > 0) {
+                        if (committees.length > 0) {
                             html += '<div class="mb-3"><span class="font-semibold">Committees:</span><ul class="list-disc list-inside ml-2">';
-                            gtData.committees.forEach(cm => {
-                                const role = cm.role_label && cm.role_label !== 'Member' ? ` (${esc(cm.role_label)})` : '';
-                                html += `<li>${esc(cm.committee.name)}${role}</li>`;
+                            committees.forEach(cm => {
+                                const role = cm.title ? ` (${esc(cm.title)})` : '';
+                                html += `<li>${esc(cm.name)}${role}</li>`;
                             });
                             html += '</ul></div>';
                         }
 
-                        // Bills sponsored grouped by stage
-                        const billGroups = [
-                            { label: 'Enacted', statuses: ['enacted_signed','enacted_veto_override','enacted_tendayrule'] },
-                            { label: 'Passed Both Chambers', statuses: ['passed_bill','passed_concurrentres','passed_simpleres','passed_constamend','conference_passed_house','conference_passed_senate'] },
-                            { label: 'Passed One Chamber', statuses: ['pass_over_house','pass_over_senate','failed_second_house','failed_second_senate'] },
-                            { label: 'Passed Committee', statuses: ['reported'] },
-                            { label: 'Introduced', statuses: ['introduced','referred','prov_kill_suspensionfailed','prov_kill_cloturefailed','vetoed_pocket','failed_originating_house','failed_originating_senate'] },
-                        ];
-                        html += '<div class="mb-3"><span class="font-semibold">Bills Sponsored</span> <span class="text-gray-400 text-xs">(limit 20)</span>:';
-                        const remainingBills = new Set(gtData.billsSponsored.map(b => b.display_number));
-                        let billsDisplayed = 0;
-                        billGroups.forEach(group => {
-                            const bills = gtData.billsSponsored.filter(b => group.statuses.includes(b.current_status) && remainingBills.has(b.display_number));
-                            bills.forEach(b => remainingBills.delete(b.display_number));
-                            const isIntroduced = group.label === 'Introduced';
-                            const limit = isIntroduced ? Math.min(10, 20 - billsDisplayed) : 20 - billsDisplayed;
-                            const billsToShow = bills.slice(0, limit);
-                            html += `<div class="mt-1"><span class="text-gray-600 text-xs font-medium">${group.label}</span>`;
-                            if (bills.length === 0) {
-                                html += '<ul class="list-disc list-inside ml-2"><li class="text-gray-400">None</li></ul>';
-                            } else {
-                                html += '<ul class="list-disc list-inside ml-2">';
-                                billsToShow.forEach(bill => {
-                                    const title = bill.title_without_number || bill.title || 'Untitled';
-                                    const year = bill.introduced_date?.substring(0, 4);
-                                    html += `<li>${esc(bill.display_number)}: ${esc(title.substring(0, 100))}${title.length > 100 ? '...' : ''} <span class="text-gray-400">(${esc(year)})</span></li>`;
-                                });
-                                billsDisplayed += billsToShow.length;
-                                html += '</ul>';
-                            }
-                            html += '</div>';
-                        });
-                        html += '</div>';
+                        html += '<div class="text-gray-400 italic">Sponsored bills and recent votes are temporarily unavailable.</div>';
 
-                        // Recent votes
-                        if (gtData.recentVotes.length > 0) {
-                            html += '<div class="mb-3"><span class="font-semibold">Recent Votes</span> <span class="text-gray-400 text-xs">(✓ = voted with majority, ✗ = voted with minority)</span><ul class="list-disc list-inside ml-2">';
-                            gtData.recentVotes.forEach(vote => {
-                                const voteOption = vote.option?.value || 'Unknown';
-                                const winner = vote.option?.winner;
-                                const voteQuestion = vote.vote?.question || 'Unknown';
-                                const passed = vote.vote?.passed;
-                                const yeas = vote.vote?.total_plus ?? '';
-                                const nays = vote.vote?.total_minus ?? '';
-                                const tally = yeas !== '' ? ` <span class="text-gray-500">(${passed ? 'Passed' : 'Failed'} ${yeas}-${nays})</span>` : '';
-                                const winLabel = winner != null ? (winner ? ' ✓' : ' ✗') : '';
-                                const question = voteQuestion.substring(0, 80) + (voteQuestion.length > 80 ? '...' : '');
-                                html += `<li><strong>${esc(voteOption)}${winLabel}</strong> on ${esc(question)}${tally}</li>`;
-                            });
-                            html += '</ul></div>';
-                        }
-
-                        gtDiv.innerHTML = html || '<div class="text-gray-500">No legislative record available</div>';
+                        gtDiv.innerHTML = html;
                     } else {
                         gtDiv.innerHTML = '<div class="text-gray-500">Not a current federal legislator - no voting record available</div>';
                     }
@@ -867,10 +792,10 @@
                             const donationsBtn = document.getElementById(`btn-donations-${contestIndex}-${candidateIndex}`);
                             if (donationsBtn) donationsBtn.classList.remove('hidden');
 
-                            // Show Record button only if GovTrack has this person
+                            // Show Record button only for current members of Congress
                             const state = ballotData.normalizedInput?.state || '';
-                            lookupGovTrackPerson(candidate.name, state).then(personId => {
-                                if (personId) {
+                            lookupLegislator(candidate.name, state).then(leg => {
+                                if (leg) {
                                     const recordBtn = document.getElementById(`btn-record-${contestIndex}-${candidateIndex}`);
                                     if (recordBtn) recordBtn.classList.remove('hidden');
                                 }
