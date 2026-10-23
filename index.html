@@ -324,12 +324,30 @@
             }
         }
 
+        // Sponsored bills + recent votes come from the my_reps Worker (Congress.gov / senate.gov; key lives there)
+        const RECORD_WORKER = 'https://my-reps.sami-prehn.workers.dev';
+
         // Legislative record for a current member of Congress
         async function fetchLegislatorRecord(candidateName, state) {
             const leg = await lookupLegislator(candidateName, state);
             if (!leg) return null;
             const { committeesByMember } = await loadCongressData();
-            return { leg, committees: committeesByMember[leg.id.bioguide] || [] };
+            const id = leg.id.bioguide;
+            const term = leg.terms[leg.terms.length - 1];
+            const votesQs = term.type === 'sen' ? `chamber=senate&lis=${leg.id.lis}` : `chamber=house&bioguide=${id}`;
+            const j = (r) => r.ok ? r.json() : null;
+            const [bills, votes] = await Promise.all([
+                fetch(`${RECORD_WORKER}/bills?bioguide=${id}`).then(j).catch(() => null),
+                fetch(`${RECORD_WORKER}/votes?${votesQs}`).then(j).catch(() => null)
+            ]);
+            return {
+                leg,
+                committees: committeesByMember[id] || [],
+                bills: bills?.bills || [],
+                billsTotal: bills?.total || 0,
+                recentVotes: (votes?.votes || []).slice(0, 10),
+                recordFailed: !bills || !votes
+            };
         }
 
         // Toggle between links, donations, and record view for a candidate
@@ -414,7 +432,7 @@
                     const rec = await fetchLegislatorRecord(candidate.name, ballotData.normalizedInput?.state || '');
 
                     if (rec) {
-                        const { leg, committees } = rec;
+                        const { leg, committees, bills, recentVotes } = rec;
                         let html = '';
 
                         // Bio
@@ -443,7 +461,51 @@
                             html += '</ul></div>';
                         }
 
-                        html += '<div class="text-gray-400 italic">Sponsored bills and recent votes are temporarily unavailable.</div>';
+                        // Bills sponsored, grouped by stage inferred from the latest action (Congress.gov has no status field)
+                        const billGroups = [
+                            { label: 'Enacted', test: /became (public|private) law|signed by president/i },
+                            { label: 'Passed a Chamber', test: /passed (house|senate)|passed\/agreed to|agreed to in (house|senate)|resolution agreed to|presented to president|received in the (house|senate)|held at the desk|cleared for white house/i },
+                            { label: 'Passed Committee', test: /reported|placed on (the )?(union|house|senate legislative) calendar/i },
+                            { label: 'Introduced', test: /./ },
+                        ];
+                        const billLabels = { HR: 'H.R.', S: 'S.', HRES: 'H.Res.', SRES: 'S.Res.', HJRES: 'H.J.Res.', SJRES: 'S.J.Res.', HCONRES: 'H.Con.Res.', SCONRES: 'S.Con.Res.' };
+                        html += `<div class="mb-3"><span class="font-semibold">Bills Sponsored</span> <span class="text-gray-400 text-xs">(${rec.billsTotal} total, limit 20)</span>:`;
+                        const remainingBills = new Set(bills);
+                        let billsDisplayed = 0;
+                        billGroups.forEach(group => {
+                            const groupBills = bills.filter(b => remainingBills.has(b) && group.test.test(b.latestAction));
+                            groupBills.forEach(b => remainingBills.delete(b));
+                            const limit = group.label === 'Introduced' ? Math.min(10, 20 - billsDisplayed) : 20 - billsDisplayed;
+                            const billsToShow = groupBills.slice(0, limit);
+                            html += `<div class="mt-1"><span class="text-gray-600 text-xs font-medium">${group.label}</span>`;
+                            if (groupBills.length === 0) {
+                                html += '<ul class="list-disc list-inside ml-2"><li class="text-gray-400">None</li></ul>';
+                            } else {
+                                html += '<ul class="list-disc list-inside ml-2">';
+                                billsToShow.forEach(bill => {
+                                    const title = bill.title || 'Untitled';
+                                    const year = bill.introducedDate?.substring(0, 4);
+                                    html += `<li>${esc(billLabels[bill.type] || bill.type)} ${esc(bill.number)}: ${esc(title.substring(0, 100))}${title.length > 100 ? '...' : ''} <span class="text-gray-400">(${esc(year || '')})</span></li>`;
+                                });
+                                billsDisplayed += billsToShow.length;
+                                html += '</ul>';
+                            }
+                            html += '</div>';
+                        });
+                        html += '</div>';
+
+                        // Recent votes
+                        if (recentVotes.length > 0) {
+                            html += '<div class="mb-3"><span class="font-semibold">Recent Votes</span> <span class="text-gray-400 text-xs">(✓ = on winning side, ✗ = on losing side)</span><ul class="list-disc list-inside ml-2">';
+                            recentVotes.forEach(vote => {
+                                const winLabel = vote.withWinner != null ? (vote.withWinner ? ' ✓' : ' ✗') : '';
+                                const question = vote.question.substring(0, 80) + (vote.question.length > 80 ? '...' : '');
+                                html += `<li><strong>${esc(vote.cast || 'Unknown')}${winLabel}</strong> on ${esc(question)} <span class="text-gray-500">(${esc(vote.result)} ${vote.yeas}-${vote.nays})</span></li>`;
+                            });
+                            html += '</ul></div>';
+                        }
+
+                        if (rec.recordFailed) html += '<div class="text-gray-400 italic">Some bill or vote data could not be loaded.</div>';
 
                         gtDiv.innerHTML = html;
                     } else {
